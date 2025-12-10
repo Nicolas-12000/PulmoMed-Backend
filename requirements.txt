@@ -1,0 +1,33 @@
+# FastAPI Backend - LungCancerVR Simulator
+# Version: 2.0 - Local/Open-Source
+
+# API Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Vector Database
+chromadb==0.4.22
+
+# Embeddings (BGE-base-en-v1.5 - calidad/peso balanceado)
+sentence-transformers==2.3.1
+transformers==4.36.2
+# torch se instala por separado: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# RAG Orchestration
+langchain==0.1.4
+langchain-community==0.0.16
+
+# PDF Processing (para futura indexación)
+pypdf==4.0.1
+python-multipart==0.0.6
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0
+pytest-cov==4.1.0
+
+# Utilities
+python-dotenv==1.0.0

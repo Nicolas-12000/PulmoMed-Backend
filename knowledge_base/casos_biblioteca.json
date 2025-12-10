@@ -1,0 +1,128 @@
+[
+  {
+    "caso_id": "SEER_001_estadio_IA",
+    "titulo": "Detección Temprana - Nódulo Pulmonar Solitario",
+    "descripcion": "Mujer de 58 años, ex-fumadora (15 pack-years, dejó hace 8 años). Nódulo de 1.8 cm detectado en screening CT. Adenocarcinoma bien diferenciado. No metástasis. Buen estado funcional (ECOG 0).",
+    "edad": 58,
+    "es_fumador": false,
+    "pack_years": 15.0,
+    "dieta": "saludable",
+    "volumen_inicial_sensible": 2.5,
+    "volumen_inicial_resistente": 0.0,
+    "objetivos_aprendizaje": [
+      "Importancia del screening en población de riesgo",
+      "Diferencia entre nódulos benignos y malignos",
+      "Criterios para resección quirúrgica en estadio IA",
+      "Pronóstico excelente con intervención temprana (80-90% supervivencia a 5 años)"
+    ],
+    "fuente_estadistica": "SEER 2015-2020: Estadio IA tiene tasa de supervivencia del 92% con lobectomía. NCCN Guidelines v3.2024 recomienda resección quirúrgica ± quimioterapia adyuvante según factores de riesgo."
+  },
+  {
+    "caso_id": "SEER_002_fumador_activo",
+    "titulo": "Fumador Activo - Carcinoma Escamoso Estadio IIB",
+    "descripcion": "Hombre de 67 años, fumador activo (45 pack-years). Tos persistente y hemoptisis. Tumor de 4.5 cm en lóbulo superior derecho con invasión pleural visceral. Carcinoma escamoso. PET-CT sin metástasis distantes. ECOG 1.",
+    "edad": 67,
+    "es_fumador": true,
+    "pack_years": 45.0,
+    "dieta": "mala",
+    "volumen_inicial_sensible": 18.3,
+    "volumen_inicial_resistente": 1.2,
+    "objetivos_aprendizaje": [
+      "Impacto del tabaquismo activo en progresión tumoral",
+      "Características del carcinoma escamoso vs adenocarcinoma",
+      "Rol de la quimiorradioterapia neoadyuvante en estadio IIB",
+      "Importancia de cesación tabáquica incluso post-diagnóstico"
+    ],
+    "fuente_estadistica": "SEER Data: Carcinoma escamoso representa 25-30% de NSCLC. Fumadores activos tienen 60% más riesgo de recurrencia. Supervivencia estadio IIB: 53% a 5 años con tratamiento multimodal."
+  },
+  {
+    "caso_id": "SEER_003_mutacion_EGFR",
+    "titulo": "Adenocarcinoma con Mutación EGFR (Estadio IIIA)",
+    "descripcion": "Mujer de 52 años, no fumadora, asiática. Adenocarcinoma con mutación EGFR exón 19 (deleción). Tumor de 5.2 cm con metástasis a ganglios mediastínicos N2. Sin metástasis distantes. Candidata a terapia dirigida.",
+    "edad": 52,
+    "es_fumador": false,
+    "pack_years": 0.0,
+    "dieta": "saludable",
+    "volumen_inicial_sensible": 24.8,
+    "volumen_inicial_resistente": 0.5,
+    "objetivos_aprendizaje": [
+      "Perfil epidemiológico: EGFR común en no fumadores asiáticos",
+      "Ventaja de inhibidores de tirosina quinasa (osimertinib) sobre quimioterapia",
+      "Mecanismos de resistencia adquirida (mutación T790M)",
+      "Importancia del análisis molecular pre-tratamiento"
+    ],
+    "fuente_estadistica": "FLAURA Trial: Osimertinib mejora supervivencia libre de progresión en 18.9 meses vs quimioterapia. NCCN recomienda TKI de 1a línea en EGFR+. Prevalencia EGFR: 15% caucásicos, 50% asiáticos."
+  },
+  {
+    "caso_id": "SEER_004_estadio_IV_metastasis",
+    "titulo": "Enfermedad Metastásica - Estadio IV con Metástasis Óseas",
+    "descripcion": "Hombre de 71 años, ex-fumador (38 pack-years). Dolor lumbar y pérdida de peso (10 kg en 3 meses). Adenocarcinoma con metástasis óseas múltiples (columna, costillas, pelvis). PD-L1 TPS 65%. ECOG 2. Candidato a inmunoterapia.",
+    "edad": 71,
+    "es_fumador": false,
+    "pack_years": 38.0,
+    "dieta": "normal",
+    "volumen_inicial_sensible": 45.6,
+    "volumen_inicial_resistente": 8.2,
+    "objetivos_aprendizaje": [
+      "Presentación clínica de enfermedad metastásica",
+      "Rol del PD-L1 como biomarcador predictivo",
+      "Inmunoterapia (pembrolizumab) como 1a línea en PD-L1 ≥50%",
+      "Manejo de metástasis óseas: bisfosfonatos + radioterapia paliativa"
+    ],
+    "fuente_estadistica": "KEYNOTE-024: Pembrolizumab mejora supervivencia global en 16.7 meses (vs 12.1 quimio) en PD-L1 ≥50%. SEER: Supervivencia estadio IV a 5 años: 10%. 40% NSCLC se diagnostica en estadio IV."
+  },
+  {
+    "caso_id": "SEER_005_joven_nunca_fumador",
+    "titulo": "Paciente Joven - Adenocarcinoma ALK+ en No Fumador",
+    "descripcion": "Mujer de 34 años, nunca fumadora, deportista. Tos seca persistente y disnea. Adenocarcinoma con reordenamiento ALK. Tumor de 3.8 cm con derrame pleural maligno (estadio IVA). Excelente estado funcional. Candidata a crizotinib.",
+    "edad": 34,
+    "es_fumador": false,
+    "pack_years": 0.0,
+    "dieta": "saludable",
+    "volumen_inicial_sensible": 15.2,
+    "volumen_inicial_resistente": 0.0,
+    "objetivos_aprendizaje": [
+      "Cáncer de pulmón en jóvenes no fumadores: perfil molecular diferente",
+      "ALK+ prevalencia: 3-5% NSCLC, más común en <40 años",
+      "Respuesta dramática a inhibidores ALK (crizotinib, alectinib)",
+      "Calidad de vida superior con terapias dirigidas vs quimioterapia"
+    ],
+    "fuente_estadistica": "PROFILE 1014: Crizotinib vs quimio en ALK+: PFS 10.9 vs 7 meses. Alectinib (2a generación): PFS 34.8 meses. NCCN: ALK testing obligatorio en no fumadores con adenocarcinoma."
+  },
+  {
+    "caso_id": "SEER_006_comorbilidades",
+    "titulo": "Paciente con Comorbilidades - EPOC y Cardiopatía",
+    "descripcion": "Hombre de 74 años, fumador activo (60 pack-years). EPOC severo (FEV1 35%), IAM previo, hipertensión. Carcinoma escamoso de 6.2 cm estadio IIIB. No candidato quirúrgico por función pulmonar. Requiere quimio-radio concurrente.",
+    "edad": 74,
+    "es_fumador": true,
+    "pack_years": 60.0,
+    "dieta": "mala",
+    "volumen_inicial_sensible": 32.4,
+    "volumen_inicial_resistente": 4.8,
+    "objetivos_aprendizaje": [
+      "Evaluación de comorbilidades en decisión terapéutica",
+      "Limitaciones quirúrgicas por función pulmonar",
+      "Radioterapia estereotáctica (SBRT) como alternativa",
+      "Balance riesgo-beneficio en pacientes frágiles"
+    ],
+    "fuente_estadistica": "PACIFIC Trial: Durvalumab post-quimio-radio mejora supervivencia en estadio III inoperable (47.5 vs 29.1 meses). 50% pacientes NSCLC tienen ≥2 comorbilidades que afectan tratamiento."
+  },
+  {
+    "caso_id": "SEER_007_recurrencia_post_cirugia",
+    "titulo": "Recurrencia Post-Quirúrgica - Metástasis Cerebral",
+    "descripcion": "Hombre de 63 años, ex-fumador. Lobectomía por adenocarcinoma estadio IB hace 18 meses. Cefalea y alteraciones visuales. RMN cerebral: 3 lesiones metastásicas (1.2, 0.8, 0.6 cm). Tumor primario EGFR wild-type, PD-L1 20%.",
+    "edad": 63,
+    "es_fumador": false,
+    "pack_years": 28.0,
+    "dieta": "normal",
+    "volumen_inicial_sensible": 8.5,
+    "volumen_inicial_resistente": 2.1,
+    "objetivos_aprendizaje": [
+      "Patrones de recurrencia post-cirugía (local vs distante)",
+      "Metástasis cerebrales: incidencia 30-50% en NSCLC avanzado",
+      "Manejo multidisciplinar: radiocirugía estereotáctica + terapia sistémica",
+      "Importancia del seguimiento post-tratamiento (CT cada 3-6 meses)"
+    ],
+    "fuente_estadistica": "SEER: Riesgo recurrencia estadio IB post-cirugía: 30-40% a 5 años. Metástasis cerebrales reducen supervivencia mediana a 7-10 meses sin tratamiento. SRS + inmunoterapia mejora control intracraneal."
+  }
+]

@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Environment
+.env
+
+# Vector DB
+knowledge_base/embeddings/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Unity (cuando se agregue)
+Unity_Client/Library/
+Unity_Client/Temp/
+Unity_Client/Logs/
+Unity_Client/.vs/
+*.csproj
+*.sln
