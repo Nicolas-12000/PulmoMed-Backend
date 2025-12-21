@@ -3,6 +3,8 @@ RAG Prompts - Template Management
 Prompts reutilizables para el sistema RAG (DRY Principle)
 """
 
+# flake8: noqa: E501  # Long prompt templates; keep readability over line-length here
+
 
 class PromptTemplates:
     """
@@ -46,9 +48,10 @@ class PromptTemplates:
         "**Pregunta Educativa:**\n"
         "Explica de forma clara y educativa:\n"
         "1. ¿Qué está sucediendo con el tumor en este momento?\n"
-        "2. ¿Qué factores del paciente están influyendo en la progresión?\n"
-        "3. ¿Qué opciones terapéuticas se considerarían según guías NCCN para "
-        "este estadio?\n"
+        "2. ¿Qué factores del paciente están influyendo "
+        "en la progresión?\n"
+        "3. ¿Qué opciones terapéuticas se considerarían "
+        "según guías NCCN para este estadio?\n"
         "4. ¿Qué debería aprender el estudiante de este caso?\n\n"
         "**Responde en formato:**\n"
         "- **Explicación:** (mecanismo biológico y matemático)\n"
@@ -133,17 +136,27 @@ class PromptTemplates:
         """
         context = PromptTemplates.format_context(context_chunks)
 
+        # Support both Spanish and English key names for robustness
+        edad = state.get("edad") if state.get("edad") is not None else state.get("age")
+        es_fumador = state.get("es_fumador") if state.get("es_fumador") is not None else state.get("is_smoker", False)
+        pack_years = state.get("pack_years") if state.get("pack_years") is not None else state.get("pack_years", 0)
+        dieta = state.get("dieta") if state.get("dieta") is not None else state.get("diet", "normal")
+        vol_sensible = state.get("volumen_tumor_sensible") if state.get("volumen_tumor_sensible") is not None else state.get("sensitive_tumor_volume", 0.0)
+        vol_resistente = state.get("volumen_tumor_resistente") if state.get("volumen_tumor_resistente") is not None else state.get("resistant_tumor_volume", 0.0)
+        estadio = state.get("estadio_aproximado") or state.get("approx_stage") or "No calculado"
+        tratamiento = state.get("tratamiento_activo") if state.get("tratamiento_activo") is not None else state.get("active_treatment", "ninguno")
+        dias_tratamiento = state.get("dias_tratamiento") if state.get("dias_tratamiento") is not None else state.get("treatment_days", 0)
+
         return PromptTemplates.TEACHER_QUERY_TEMPLATE.format(
             context=context,
-            edad=state["edad"],
-            es_fumador="Sí" if state["es_fumador"] else "No",
-            pack_years=state["pack_years"],
-            dieta=state["dieta"],
-            volumen_total=state["volumen_tumor_sensible"]
-            + state["volumen_tumor_resistente"],
-            volumen_sensible=state["volumen_tumor_sensible"],
-            volumen_resistente=state["volumen_tumor_resistente"],
-            estadio=state.get("estadio_aproximado", "No calculado"),
-            tratamiento=state["tratamiento_activo"],
-            dias_tratamiento=state.get("dias_tratamiento", 0),
+            edad=edad,
+            es_fumador="Sí" if es_fumador else "No",
+            pack_years=pack_years,
+            dieta=dieta,
+            volumen_total=vol_sensible + vol_resistente,
+            volumen_sensible=vol_sensible,
+            volumen_resistente=vol_resistente,
+            estadio=estadio,
+            tratamiento=tratamiento,
+            dias_tratamiento=dias_tratamiento,
         )

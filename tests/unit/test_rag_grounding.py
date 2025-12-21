@@ -25,18 +25,23 @@ async def test_response_includes_sources_and_uses_mockllm():
     service = AITeacherService(repository=repo, llm_client=mock_llm)
 
     state = SimulationState(
-        edad=60,
-        es_fumador=False,
+        age=60,
+        is_smoker=False,
         pack_years=0,
-        dieta="normal",
-        volumen_tumor_sensible=5.0,
-        volumen_tumor_resistente=0.0,
+        diet="normal",
+        sensitive_tumor_volume=5.0,
+        resistant_tumor_volume=0.0,
     )
 
     resp = await service.get_educational_feedback(state)
-    assert isinstance(resp.fuentes, list)
-    assert len(resp.fuentes) >= 1
-    assert resp.llm_model in ("ollama-mock", "ollama-real", "mock") or "RESPUESTA_MOCK" in resp.explicacion or "RESP_TRATAMIENTO" in resp.explicacion
+    assert isinstance(resp.sources, list)
+    assert len(resp.sources) >= 1
+    ok = (
+        resp.llm_model in ("ollama-mock", "ollama-real", "mock")
+        or "RESPUESTA_MOCK" in resp.explanation
+        or "RESP_TRATAMIENTO" in resp.explanation
+    )
+    assert ok
 
 
 @pytest.mark.asyncio
@@ -46,16 +51,16 @@ async def test_insufficient_info_returns_safe_message():
     service = AITeacherService(repository=repo, llm_client=mock_llm)
 
     state = SimulationState(
-        edad=50,
-        es_fumador=False,
+        age=50,
+        is_smoker=False,
         pack_years=0,
-        dieta="normal",
-        volumen_tumor_sensible=0.1,
-        volumen_tumor_resistente=0.0,
+        diet="normal",
+        sensitive_tumor_volume=0.1,
+        resistant_tumor_volume=0.0,
     )
 
     resp = await service.get_educational_feedback(state)
-    assert "No dispongo de información suficiente" in resp.explicacion
+    assert "No dispongo de información suficiente" in resp.explanation
 
 
 @pytest.mark.asyncio
@@ -70,13 +75,13 @@ async def test_malicious_prompt_rejected(monkeypatch):
     monkeypatch.setattr(service, "_build_search_query", lambda state: "rm -rf /")
 
     state = SimulationState(
-        edad=45,
-        es_fumador=False,
+        age=45,
+        is_smoker=False,
         pack_years=0,
-        dieta="normal",
-        volumen_tumor_sensible=3.0,
-        volumen_tumor_resistente=0.0,
+        diet="normal",
+        sensitive_tumor_volume=3.0,
+        resistant_tumor_volume=0.0,
     )
 
     resp = await service.get_educational_feedback(state)
-    assert "Solicitud rechazada" in resp.explicacion or "rechazada" in (resp.advertencia or "")
+    assert "Solicitud rechazada" in resp.explanation or "rechazada" in (resp.warning or "")

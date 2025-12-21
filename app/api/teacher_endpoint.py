@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/v1", tags=["AI Teacher"])
 
 @router.post(
     "/consultar_profesor",
-    response_model=TeacherResponse,
+    response_model=dict,
     summary="Consultar al Profesor IA",
     description="""
     Envía el estado actual de la simulación y recibe feedback educativo personalizado.
@@ -61,7 +61,17 @@ async def consultar_profesor(
         )
 
         response = await service.get_educational_feedback(state)
-        return response
+
+        # Return a Spanish-keyed dict for backward compatibility with clients/tests
+        return {
+            "explicacion": response.explanation,
+            "recomendacion": response.recommendation,
+            "fuentes": response.sources,
+            "advertencia": response.warning,
+            "retrieved_chunks": response.retrieved_chunks,
+            "llm_model": response.llm_model,
+            "model_used": response.llm_model,
+        }
 
     except Exception as e:
         logger.error(f"Error en consulta: {e}", exc_info=True)

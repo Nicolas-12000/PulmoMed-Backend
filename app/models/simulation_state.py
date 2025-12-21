@@ -27,52 +27,96 @@ class SimulationState(BaseModel):
     """
 
     # Datos del Paciente
-    edad: int = Field(..., ge=18, le=100, description="Edad del paciente (18-100)")
-    es_fumador: bool = Field(default=False, description="Fumador activo o ex-fumador")
+    age: int = Field(..., ge=18, le=100, description="Edad del paciente (18-100)", alias="edad")
+    is_smoker: bool = Field(default=False, description="Fumador activo o ex-fumador", alias="es_fumador")
     pack_years: float = Field(
-        default=0.0, ge=0, le=150, description="Paquetes-año acumulados"
+        default=0.0, ge=0, le=150, description="Paquetes-año acumulados", alias="pack_years"
     )
     # Tiempo desde último cambio de hábito (días)
-    dias_desde_cambio_tabaco: int = Field(default=0, ge=0)
+    days_since_smoking_change: int = Field(default=0, ge=0, alias="dias_desde_cambio")
 
     # Estado sintético del pulmón (se calcula o se puede fijar)
     lung_state: LungState | None = Field(default=None)
-    dieta: Literal["saludable", "normal", "mala"] = Field(default="normal")
+    diet: Literal["saludable", "normal", "mala"] = Field(default="normal", alias="dieta")
 
     # Estado del Tumor (valores de la simulación matemática)
-    volumen_tumor_sensible: float = Field(
-        ..., ge=0, description="Volumen células sensibles (cm³)"
+    sensitive_tumor_volume: float = Field(
+        ..., ge=0, description="Volumen células sensibles (cm³)", alias="volumen_tumor_sensible"
     )
-    volumen_tumor_resistente: float = Field(
-        default=0.0, ge=0, description="Volumen células resistentes (cm³)"
+    resistant_tumor_volume: float = Field(
+        default=0.0, ge=0, description="Volumen células resistentes (cm³)", alias="volumen_tumor_resistente"
     )
 
     # Tratamiento Actual
-    tratamiento_activo: Literal["ninguno", "quimio", "radio", "inmuno"] = Field(
-        default="ninguno"
+    active_treatment: Literal["ninguno", "quimio", "radio", "inmuno"] = Field(
+        default="ninguno", alias="tratamiento_activo"
     )
-    dias_tratamiento: int = Field(
-        default=0, ge=0, description="Días acumulados de tratamiento"
+    treatment_days: int = Field(
+        default=0, ge=0, description="Días acumulados de tratamiento", alias="dias_tratamiento"
     )
 
     # Contexto de Modo
-    modo: Literal["libre", "biblioteca"] = Field(default="libre")
-    caso_id: str | None = Field(
-        default=None, description="ID del caso si modo=biblioteca"
+    mode: Literal["libre", "biblioteca"] = Field(default="libre", alias="modo")
+    case_id: str | None = Field(
+        default=None, description="ID del caso si modo=biblioteca", alias="caso_id"
     )
+
+    model_config = {"populate_by_name": True}
 
     @field_validator("pack_years")
     @classmethod
     def validate_pack_years(cls, v: float, info) -> float:
-        """Validación: pack_years > 0 solo si es_fumador"""
-        if not info.data.get("es_fumador", False) and v > 0:
+        """Validación: pack_years > 0 solo si is_smoker"""
+        if not info.data.get("is_smoker", False) and v > 0:
             raise ValueError("pack_years debe ser 0 si no es fumador")
         return v
 
     @property
-    def volumen_total(self) -> float:
+    def total_volume(self) -> float:
         """Volumen total del tumor"""
-        return self.volumen_tumor_sensible + self.volumen_tumor_resistente
+        return self.sensitive_tumor_volume + self.resistant_tumor_volume
+
+    # Spanish convenience properties for compatibility with existing code/tests
+    @property
+    def volumen_total(self) -> float:
+        return self.total_volume
+
+    @property
+    def volumen_tumor_sensible(self) -> float:
+        return self.sensitive_tumor_volume
+
+    @property
+    def volumen_tumor_resistente(self) -> float:
+        return self.resistant_tumor_volume
+
+    @property
+    def tratamiento_activo(self) -> str:
+        return self.active_treatment
+
+    @property
+    def dias_tratamiento(self) -> int:
+        return self.treatment_days
+
+    @property
+    def modo(self) -> str:
+        return self.mode
+
+    @property
+    def caso_id(self) -> str | None:
+        return self.case_id
+
+    @property
+    def estadio_aproximado(self) -> str:
+        return self.approx_stage
+
+    # Additional Spanish convenience properties
+    @property
+    def edad(self) -> int:
+        return self.age
+
+    @property
+    def es_fumador(self) -> bool:
+        return self.is_smoker
 
     def compute_risk_score(self) -> float:
         """Compute a simple risk score combining age and pack_years and tumor volume.
@@ -80,11 +124,11 @@ class SimulationState(BaseModel):
         Normalized 0..1 score; higher means worse.
         """
         # Age factor (18-100 -> 0..1)
-        age_factor = max(0.0, min(1.0, (self.edad - 18) / (100 - 18)))
+        age_factor = max(0.0, min(1.0, (self.age - 18) / (100 - 18)))
         # Pack-years normalized to 150
         pack_factor = min(1.0, self.pack_years / 150.0)
         # Volume factor: assume 0-100 maps to 0..1
-        vol = self.volumen_total
+        vol = self.total_volume
         vol_factor = min(1.0, vol / 100.0)
         # Weighted combination
         return 0.4 * age_factor + 0.4 * pack_factor + 0.2 * vol_factor
@@ -100,7 +144,7 @@ class SimulationState(BaseModel):
         - If vol between 20..60 -> CRITICO
         - else -> TERMINAL
         """
-        vol = self.volumen_total
+        vol = self.total_volume
         if vol <= 0.0:
             state = LungState.SANO
         else:
@@ -125,13 +169,13 @@ class SimulationState(BaseModel):
 
         This method sets `es_fumador` and notes the change time counter reset.
         """
-        self.es_fumador = True
-        self.dias_desde_cambio_tabaco = 0
+        self.is_smoker = True
+        self.days_since_smoking_change = 0
 
     def stop_smoking(self) -> None:
         """Mark the patient as having stopped smoking; resets the change counter."""
-        self.es_fumador = False
-        self.dias_desde_cambio_tabaco = 0
+        self.is_smoker = False
+        self.days_since_smoking_change = 0
 
     def advance_time_and_accumulate_smoking(self, days: int, cigarettes_per_day: int = 20) -> None:
         """Advance time in days; if patient smokes, accumulate pack-years.
@@ -140,18 +184,18 @@ class SimulationState(BaseModel):
         """
         if days <= 0:
             return
-        self.dias_desde_cambio_tabaco += days
-        if self.es_fumador:
+        self.days_since_smoking_change += days
+        if self.is_smoker:
             added_years = (cigarettes_per_day / 20.0) * (days / 365.0)
             self.pack_years = min(150.0, self.pack_years + added_years)
 
     @property
-    def estadio_aproximado(self) -> str:
+    def approx_stage(self) -> str:
         """
         Estimación del estadio TNM basado en volumen
         Simplificación educativa (no diagnóstico real)
         """
-        vol = self.volumen_total
+        vol = self.total_volume
         if vol < 3.0:
             return "IA (T1a)"
         elif vol < 14.0:
@@ -170,12 +214,12 @@ class TeacherResponse(BaseModel):
     Contiene feedback educativo basado en RAG
     """
 
-    explicacion: str = Field(..., description="Explicación médica del estado actual")
-    recomendacion: str = Field(..., description="Recomendación terapéutica educativa")
-    fuentes: list[str] = Field(
+    explanation: str = Field(..., description="Explicación médica del estado actual")
+    recommendation: str = Field(..., description="Recomendación terapéutica educativa")
+    sources: list[str] = Field(
         default_factory=list, description="Referencias médicas (NCCN, estudios)"
     )
-    advertencia: str | None = Field(
+    warning: str | None = Field(
         default=None, description="Disclaimer educativo si aplica"
     )
 
@@ -196,23 +240,66 @@ class CasoBiblioteca(BaseModel):
     Basado en estadísticas SEER y guías NCCN
     """
 
-    caso_id: str = Field(..., description="Identificador único del caso")
-    titulo: str = Field(..., description="Título descriptivo del caso")
-    descripcion: str = Field(..., description="Historia clínica resumida")
+    case_id: str = Field(..., description="Identificador único del caso", alias="caso_id")
+    title: str = Field(..., description="Título descriptivo del caso", alias="titulo")
+    description: str = Field(..., description="Historia clínica resumida", alias="descripcion")
 
-    # Parámetros del paciente
-    edad: int
-    es_fumador: bool
-    pack_years: float
-    dieta: Literal["saludable", "normal", "mala"]
+    # Patient parameters (Spanish strings kept in descriptions)
+    age: int = Field(..., alias="edad")
+    is_smoker: bool = Field(..., alias="es_fumador")
+    pack_years: float = Field(..., alias="pack_years")
+    diet: Literal["saludable", "normal", "mala"] = Field(..., alias="dieta")
 
-    # Estado inicial del tumor
-    volumen_inicial_sensible: float
-    volumen_inicial_resistente: float = 0.0
+    # Initial tumor state
+    initial_sensitive_volume: float = Field(..., alias="volumen_inicial_sensible")
+    initial_resistant_volume: float = Field(default=0.0, alias="volumen_inicial_resistente")
 
-    # Contexto educativo
-    objetivos_aprendizaje: list[str] = Field(default_factory=list)
-    fuente_estadistica: str = Field(..., description="Referencia SEER/NCCN")
+    # Educational context
+    learning_objectives: list[str] = Field(default_factory=list, alias="objetivos_aprendizaje")
+    statistical_source: str = Field(..., description="Referencia SEER/NCCN", alias="fuente_estadistica")
+
+    model_config = {"populate_by_name": True}
+
+    # Spanish-named convenience properties for backward-compatibility with tests
+    @property
+    def caso_id(self) -> str:
+        return self.case_id
+
+    @property
+    def titulo(self) -> str:
+        return self.title
+
+    @property
+    def descripcion(self) -> str:
+        return self.description
+
+    @property
+    def edad(self) -> int:
+        return self.age
+
+    @property
+    def es_fumador(self) -> bool:
+        return self.is_smoker
+
+    @property
+    def dieta(self) -> str:
+        return self.diet
+
+    @property
+    def volumen_inicial_sensible(self) -> float:
+        return self.initial_sensitive_volume
+
+    @property
+    def volumen_inicial_resistente(self) -> float:
+        return self.initial_resistant_volume
+
+    @property
+    def objetivos_aprendizaje(self) -> list[str]:
+        return self.learning_objectives
+
+    @property
+    def fuente_estadistica(self) -> str:
+        return self.statistical_source
 
 
 class HealthCheckResponse(BaseModel):

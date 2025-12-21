@@ -43,20 +43,20 @@ async def test_teacher_service_insufficient_and_malicious(monkeypatch):
     svc = AITeacherService(repository=repo, llm_client=SimpleLLM("ok"))
 
     state = SimulationState(
-        edad=30,
-        es_fumador=False,
+        age=30,
+        is_smoker=False,
         pack_years=0.0,
-        dias_desde_cambio_tabaco=0,
+        days_since_smoking_change=0,
         lung_state=None,
-        dieta="normal",
-        volumen_tumor_sensible=0.0,
-        volumen_tumor_resistente=0.0,
-        tratamiento_activo="ninguno",
-        dias_tratamiento=0,
+        diet="normal",
+        sensitive_tumor_volume=0.0,
+        resistant_tumor_volume=0.0,
+        active_treatment="ninguno",
+        treatment_days=0,
     )
 
     resp = await svc.get_educational_feedback(state)
-    assert "No dispongo de información suficiente" in resp.explicacion
+    assert "No dispongo de información suficiente" in resp.explanation
 
     # Now test malicious prompt detection: monkeypatch prompt builder to return malicious content
     class PT:
@@ -67,28 +67,37 @@ async def test_teacher_service_insufficient_and_malicious(monkeypatch):
     # Fake repository returns a chunk under threshold
     svc.repository = DummyRepo([{"metadata": {"source": "kb.pdf"}, "distance": 0.1, "text": "x"}])
     resp2 = await svc.get_educational_feedback(state)
-    assert "Solicitud rechazada" in resp2.explicacion or resp2.llm_model == "safety-filter"
+    assert "Solicitud rechazada" in resp2.explanation or resp2.llm_model == "safety-filter"
 
 
 @pytest.mark.asyncio
 async def test_teacher_service_parse_full_flow(monkeypatch):
     # Prepare a response with explicit sections
-    llm_text = "**Explicación:**\nDetalle explicativo\n**Recomendación Educativa:**\nHacer A\n**Disclaimer:**\nN/A"
-    svc = AITeacherService(repository=DummyRepo([{"metadata": {"source": "x"}, "distance": 0.01, "text": "t"}]), llm_client=SimpleLLM(llm_text))
+    llm_text = (
+        "**Explicación:**\nDetalle explicativo\n"
+        "**Recomendación Educativa:**\nHacer A\n"
+        "**Disclaimer:**\nN/A"
+    )
+    svc = AITeacherService(
+        repository=DummyRepo([
+            {"metadata": {"source": "x"}, "distance": 0.01, "text": "t"}
+        ]),
+        llm_client=SimpleLLM(llm_text),
+    )
 
     state = SimulationState(
-        edad=60,
-        es_fumador=True,
+        age=60,
+        is_smoker=True,
         pack_years=10.0,
-        dias_desde_cambio_tabaco=0,
+        days_since_smoking_change=0,
         lung_state=None,
-        dieta="normal",
-        volumen_tumor_sensible=5.0,
-        volumen_tumor_resistente=0.0,
-        tratamiento_activo="ninguno",
-        dias_tratamiento=0,
+        diet="normal",
+        sensitive_tumor_volume=5.0,
+        resistant_tumor_volume=0.0,
+        active_treatment="ninguno",
+        treatment_days=0,
     )
 
     resp = await svc.get_educational_feedback(state)
-    assert "Detalle explicativo" in resp.explicacion
-    assert resp.fuentes and "x" in resp.fuentes[0]
+    assert "Detalle explicativo" in resp.explanation
+    assert resp.sources and "x" in resp.sources[0]

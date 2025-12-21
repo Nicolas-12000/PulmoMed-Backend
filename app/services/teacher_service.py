@@ -93,8 +93,8 @@ class AITeacherService:
             TeacherResponse con explicación, recomendación y fuentes
         """
         logger.info(
-            f"Generando feedback para paciente: {state.edad} años, "
-            f"volumen: {state.volumen_total:.2f} cm³"
+            f"Generando feedback para paciente: {state.age} años, "
+            f"volumen: {state.total_volume:.2f} cm³"
         )
 
         # Step 1: Construir query de búsqueda semántica
@@ -112,13 +112,13 @@ class AITeacherService:
         # If no chunks pass the grounding threshold, return safe insufficient-info response
         if not relevant_chunks:
             return TeacherResponse(
-                explicacion=(
+                explanation=(
                     "No dispongo de información suficiente en la base de conocimiento "
                     "para responder con fundamento."
                 ),
-                recomendacion="No hay datos suficientes para recomendar una acción.",
-                fuentes=[],
-                advertencia=(
+                recommendation="No hay datos suficientes para recomendar una acción.",
+                sources=[],
+                warning=(
                     "⚠️ No hay suficiente información en la base de conocimiento "
                     "para proporcionar una respuesta fundamentada."
                 ),
@@ -127,24 +127,35 @@ class AITeacherService:
             )
 
         # Step 3: Construir prompt con contexto
-        state_dict = state.model_dump()
-        state_dict["estadio_aproximado"] = state.estadio_aproximado
+        # The PromptTemplates expect Spanish keys (edad, es_fumador, etc.).
+        # Map the English-named SimulationState fields into the Spanish keys.
+        state_for_prompt = {
+            "edad": state.age,
+            "es_fumador": state.is_smoker,
+            "pack_years": state.pack_years,
+            "dieta": state.diet,
+            "volumen_tumor_sensible": state.sensitive_tumor_volume,
+            "volumen_tumor_resistente": state.resistant_tumor_volume,
+            "estadio_aproximado": state.approx_stage,
+            "tratamiento_activo": state.active_treatment,
+            "dias_tratamiento": state.treatment_days,
+        }
 
         prompt = self.prompt_templates.build_teacher_prompt(
-            state=state_dict, context_chunks=relevant_chunks
+            state=state_for_prompt, context_chunks=relevant_chunks
         )
 
         # Step 4: Query al LLM (mock o real)
         # Security: sanitize prompt before sending to LLM
         if self._is_malicious(prompt) or self._is_malicious(search_query):
             return TeacherResponse(
-                explicacion=(
+                explanation=(
                     "Solicitud rechazada: el contenido proporcionado parece ser "
                     "potencialmente malicioso o realizar instrucciones peligrosas."
                 ),
-                recomendacion="No puedo procesar solicitudes que contengan instrucciones peligrosas.",
-                fuentes=[],
-                advertencia=(
+                recommendation="No puedo procesar solicitudes que contengan instrucciones peligrosas.",
+                sources=[],
+                warning=(
                     "⚠️ Solicitud rechazada por medidas de seguridad. Proporcione datos clínicos válidos."
                 ),
                 retrieved_chunks=0,
@@ -174,22 +185,22 @@ class AITeacherService:
         query_parts = []
 
         # Contexto del paciente
-        query_parts.append(f"paciente {state.edad} años")
+        query_parts.append(f"paciente {state.age} años")
 
-        if state.es_fumador:
+        if state.is_smoker:
             query_parts.append(f"fumador {state.pack_years} pack-years")
 
         # Estadio tumoral
-        query_parts.append(f"{state.estadio_aproximado} NSCLC")
+        query_parts.append(f"{state.approx_stage} NSCLC")
 
         # Tratamiento si está activo
-        if state.tratamiento_activo != "ninguno":
-            query_parts.append(f"tratamiento {state.tratamiento_activo}")
-            if state.volumen_tumor_resistente > 0:
+        if state.active_treatment != "ninguno":
+            query_parts.append(f"tratamiento {state.active_treatment}")
+            if state.resistant_tumor_volume > 0:
                 query_parts.append("resistencia al tratamiento")
 
         # Pregunta específica según contexto
-        if state.tratamiento_activo != "ninguno":
+        if state.active_treatment != "ninguno":
             query_parts.append("guías NCCN respuesta terapéutica")
         else:
             query_parts.append("opciones terapéuticas recomendadas")
@@ -257,11 +268,12 @@ class AITeacherService:
             else "ollama-real"
         )
 
+        # Map Spanish-parsed parts into English-named fields
         return TeacherResponse(
-            explicacion=explicacion or "Análisis en progreso",
-            recomendacion=recomendacion or "Consultar directrices clínicas",
-            fuentes=fuentes,
-            advertencia=advertencia,
+            explanation=explicacion or "Análisis en progreso",
+            recommendation=recomendacion or "Consultar directrices clínicas",
+            sources=fuentes,
+            warning=advertencia,
             retrieved_chunks=len(chunks),
             llm_model=llm_model,
         )

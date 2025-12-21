@@ -65,31 +65,31 @@ class TestAITeacherService:
     async def test_get_educational_feedback_success(self, service, mock_repository):
         """Test: Generación exitosa de feedback educativo"""
         state = SimulationState(
-            edad=58,
-            es_fumador=False,
+            age=58,
+            is_smoker=False,
             pack_years=0,
-            volumen_tumor_sensible=2.5,
-            tratamiento_activo="ninguno",
+            sensitive_tumor_volume=2.5,
+            active_treatment="ninguno",
         )
 
         response = await service.get_educational_feedback(state)
 
         assert isinstance(response, TeacherResponse)
-        assert response.explicacion != ""
-        assert response.recomendacion != ""
-        assert len(response.fuentes) > 0
-        assert response.advertencia is not None
+        assert response.explanation != ""
+        assert response.recommendation != ""
+        assert len(response.sources) > 0
+        assert response.warning is not None
         assert mock_repository.retrieve_relevant_chunks.called
 
     @pytest.mark.asyncio
     async def test_build_search_query_smoker(self, service):
         """Test: Construcción de query para fumador"""
         state = SimulationState(
-            edad=67,
-            es_fumador=True,
+            age=67,
+            is_smoker=True,
             pack_years=45.0,
-            volumen_tumor_sensible=18.0,
-            tratamiento_activo="quimio",
+            sensitive_tumor_volume=18.0,
+            active_treatment="quimio",
         )
 
         query = service._build_search_query(state)
@@ -103,10 +103,10 @@ class TestAITeacherService:
     async def test_build_search_query_with_resistance(self, service):
         """Test: Query incluye resistencia si hay células resistentes"""
         state = SimulationState(
-            edad=60,
-            volumen_tumor_sensible=10.0,
-            volumen_tumor_resistente=3.0,
-            tratamiento_activo="quimio",
+            age=60,
+            sensitive_tumor_volume=10.0,
+            resistant_tumor_volume=3.0,
+            active_treatment="quimio",
         )
 
         query = service._build_search_query(state)
@@ -128,21 +128,21 @@ Considerar tratamiento según NCCN.
             {"text": "Contenido", "metadata": {"source": "test.pdf"}, "distance": 0.2}
         ]
 
-        state = SimulationState(edad=60, volumen_tumor_sensible=5.0)
+        state = SimulationState(age=60, sensitive_tumor_volume=5.0)
 
         response = service._parse_llm_response(llm_response, chunks, state)
 
-        assert "Tumor en crecimiento" in response.explicacion
-        assert "NCCN" in response.recomendacion
-        assert len(response.fuentes) > 0
-        assert response.advertencia is not None
+        assert "Tumor en crecimiento" in response.explanation
+        assert "NCCN" in response.recommendation
+        assert len(response.sources) > 0
+        assert response.warning is not None
 
     @pytest.mark.asyncio
     async def test_feedback_with_empty_chunks(self, service, mock_repository):
         """Test: Service maneja correctamente retrieval vacío"""
         mock_repository.retrieve_relevant_chunks = Mock(return_value=[])
 
-        state = SimulationState(edad=55, volumen_tumor_sensible=8.0)
+        state = SimulationState(age=55, sensitive_tumor_volume=8.0)
 
         response = await service.get_educational_feedback(state)
 

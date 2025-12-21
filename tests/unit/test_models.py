@@ -15,34 +15,34 @@ class TestSimulationState:
     def test_valid_state_creation(self):
         """Test: Creación válida de estado"""
         state = SimulationState(
-            edad=55,
-            es_fumador=True,
+            age=55,
+            is_smoker=True,
             pack_years=30.0,
-            dieta="normal",
-            volumen_tumor_sensible=10.5,
-            volumen_tumor_resistente=1.2,
-            tratamiento_activo="quimio",
+            diet="normal",
+            sensitive_tumor_volume=10.5,
+            resistant_tumor_volume=1.2,
+            active_treatment="quimio",
         )
 
-        assert state.edad == 55
-        assert state.volumen_total == 11.7
-        assert state.tratamiento_activo == "quimio"
+        assert state.age == 55
+        assert state.total_volume == 11.7
+        assert state.active_treatment == "quimio"
 
     def test_age_validation_fails(self):
         """Test: Validación edad fuera de rango"""
         with pytest.raises(ValidationError) as exc_info:
-            SimulationState(edad=150, volumen_tumor_sensible=5.0)  # Invalid
+            SimulationState(age=150, sensitive_tumor_volume=5.0)  # Invalid
 
-        assert "edad" in str(exc_info.value)
+        assert "age" in str(exc_info.value)
 
     def test_pack_years_validation_non_smoker(self):
         """Test: pack_years > 0 sin ser fumador debe fallar"""
         with pytest.raises(ValidationError):
             SimulationState(
-                edad=60,
-                es_fumador=False,
+                age=60,
+                is_smoker=False,
                 pack_years=20.0,  # Invalid para no fumador
-                volumen_tumor_sensible=5.0,
+                sensitive_tumor_volume=5.0,
             )
 
     def test_estadio_aproximado_calculation(self):
@@ -56,16 +56,16 @@ class TestSimulationState:
         ]
 
         for volumen, estadio_esperado in test_cases:
-            state = SimulationState(edad=60, volumen_tumor_sensible=volumen)
-            assert state.estadio_aproximado == estadio_esperado
+            state = SimulationState(age=60, sensitive_tumor_volume=volumen)
+            assert state.approx_stage == estadio_esperado
 
     def test_volumen_total_property(self):
         """Test: Propiedad calculada volumen_total"""
         state = SimulationState(
-            edad=55, volumen_tumor_sensible=8.5, volumen_tumor_resistente=1.5
+            age=55, sensitive_tumor_volume=8.5, resistant_tumor_volume=1.5
         )
 
-        assert state.volumen_total == 10.0
+        assert state.total_volume == 10.0
 
 
 class TestTeacherResponse:
@@ -74,26 +74,26 @@ class TestTeacherResponse:
     def test_valid_response_creation(self):
         """Test: Creación válida de respuesta"""
         response = TeacherResponse(
-            explicacion="El tumor crece según Gompertz",
-            recomendacion="Consultar oncólogo",
-            fuentes=["NCCN Guidelines 2024"],
+            explanation="El tumor crece según Gompertz",
+            recommendation="Consultar oncólogo",
+            sources=["NCCN Guidelines 2024"],
             retrieved_chunks=5,
         )
 
-        assert response.explicacion != ""
+        assert response.explanation != ""
         assert response.llm_model == "mock"
-        assert len(response.fuentes) == 1
+        assert len(response.sources) == 1
 
     def test_response_with_warning(self):
         """Test: Respuesta con advertencia educativa"""
         response = TeacherResponse(
-            explicacion="Análisis",
-            recomendacion="Acción",
-            advertencia="Este es un simulador educativo",
+            explanation="Análisis",
+            recommendation="Acción",
+            warning="Este es un simulador educativo",
         )
 
-        assert response.advertencia is not None
-        assert "educativo" in response.advertencia.lower()
+        assert response.warning is not None
+        assert "educativo" in response.warning.lower()
 
 
 class TestCasoBiblioteca:

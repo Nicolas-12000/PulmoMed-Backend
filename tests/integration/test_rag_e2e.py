@@ -34,27 +34,27 @@ class TestRAGEndToEnd:
     async def test_rag_flow_early_stage(self, service):
         """Test: RAG completo para tumor estadio temprano"""
         state = SimulationState(
-            edad=58,
-            es_fumador=False,
+            age=58,
+            is_smoker=False,
             pack_years=0,
-            volumen_tumor_sensible=1.5,  # Pequeño
-            volumen_tumor_resistente=0,
-            tratamiento_activo="ninguno",
+            sensitive_tumor_volume=1.5,  # Pequeño
+            resistant_tumor_volume=0,
+            active_treatment="ninguno",
         )
 
         response = await service.get_educational_feedback(state)
 
         # Validar estructura de respuesta
-        assert response.explicacion is not None
-        assert len(response.explicacion) > 30
-        assert response.recomendacion is not None
-        assert response.advertencia is not None
-        assert len(response.fuentes) > 0
+        assert response.explanation is not None
+        assert len(response.explanation) > 30
+        assert response.recommendation is not None
+        assert response.warning is not None
+        assert len(response.sources) > 0
         assert isinstance(response.llm_model, str)
         assert len(response.llm_model) > 0
 
         # Validar contenido relevante (Gemini debe mencionar estadio temprano)
-        combined_text = (response.explicacion + response.recomendacion).lower()
+        combined_text = (response.explanation + response.recommendation).lower()
         assert any(
             keyword in combined_text
             for keyword in ["estadio", "temprano", "cirugía", "resección", "pronóstico"]
@@ -64,18 +64,18 @@ class TestRAGEndToEnd:
     async def test_rag_flow_with_treatment(self, service):
         """Test: RAG con tratamiento activo (quimioterapia)"""
         state = SimulationState(
-            edad=65,
-            es_fumador=True,
+            age=65,
+            is_smoker=True,
             pack_years=40,
-            volumen_tumor_sensible=12.0,
-            volumen_tumor_resistente=0.5,
-            tratamiento_activo="quimio",
+            sensitive_tumor_volume=12.0,
+            resistant_tumor_volume=0.5,
+            active_treatment="quimio",
         )
 
         response = await service.get_educational_feedback(state)
 
         # Validar que Gemini detectó tratamiento y resistencia
-        combined_text = (response.explicacion + response.recomendacion).lower()
+        combined_text = (response.explanation + response.recommendation).lower()
         assert any(
             keyword in combined_text
             for keyword in ["quimio", "tratamiento", "resistencia", "terapia"]
@@ -83,28 +83,27 @@ class TestRAGEndToEnd:
 
         # Verificar que recuperó chunks relevantes
         assert response.retrieved_chunks > 0
-        assert len(response.fuentes) > 0
+        assert len(response.sources) > 0
 
     @pytest.mark.asyncio
     async def test_rag_flow_advanced_stage(self, service):
         """Test: RAG para estadio avanzado con resistencia"""
         state = SimulationState(
-            edad=72,
-            es_fumador=True,
+            age=72,
+            is_smoker=True,
             pack_years=60,
-            volumen_tumor_sensible=25.0,
-            volumen_tumor_resistente=8.0,
-            tratamiento_activo="quimio",
-            tiempo_simulacion=450,  # ~15 meses
+            sensitive_tumor_volume=25.0,
+            resistant_tumor_volume=8.0,
+            active_treatment="quimio",
         )
 
         response = await service.get_educational_feedback(state)
 
         # Validar respuesta para caso avanzado
-        assert response.explicacion is not None
-        assert len(response.fuentes) > 0
+        assert response.explanation is not None
+        assert len(response.sources) > 0
 
-        combined_text = (response.explicacion + response.recomendacion).lower()
+        combined_text = (response.explanation + response.recommendation).lower()
 
         # Gemini debería mencionar estadio avanzado o resistencia
         assert any(
@@ -124,11 +123,11 @@ class TestRAGEndToEnd:
     async def test_rag_retrieval_quality(self, service):
         """Test: Calidad del retrieval RAG"""
         state = SimulationState(
-            edad=60,
-            es_fumador=True,
+            age=60,
+            is_smoker=True,
             pack_years=45,
-            volumen_tumor_sensible=8.0,
-            tratamiento_activo="ninguno",
+            sensitive_tumor_volume=8.0,
+            active_treatment="ninguno",
         )
 
         # Build query como lo hace el servicio
@@ -156,33 +155,33 @@ class TestRAGEndToEnd:
     async def test_rag_with_smoker_context(self, service):
         """Test: RAG incluye contexto de fumador en retrieval"""
         state_smoker = SimulationState(
-            edad=58,
-            es_fumador=True,
+            age=58,
+            is_smoker=True,
             pack_years=40,
-            volumen_tumor_sensible=5.0,
-            tratamiento_activo="ninguno",
+            sensitive_tumor_volume=5.0,
+            active_treatment="ninguno",
         )
 
         state_nonsmoker = SimulationState(
-            edad=58,
-            es_fumador=False,
+            age=58,
+            is_smoker=False,
             pack_years=0,
-            volumen_tumor_sensible=5.0,
-            tratamiento_activo="ninguno",
+            sensitive_tumor_volume=5.0,
+            active_treatment="ninguno",
         )
 
         response_smoker = await service.get_educational_feedback(state_smoker)
         response_nonsmoker = await service.get_educational_feedback(state_nonsmoker)
 
         # Ambas respuestas deben ser válidas
-        assert response_smoker.explicacion is not None
-        assert response_nonsmoker.explicacion is not None
+        assert response_smoker.explanation is not None
+        assert response_nonsmoker.explanation is not None
 
         # Las respuestas deberían ser diferentes (contexto diferente)
         # Nota: el LLM puede generar respuestas similares.
         # El retrieval debe diferir para que las respuestas varíen según contexto
         smoker_text = (
-            response_smoker.explicacion + response_smoker.recomendacion
+            response_smoker.explanation + response_smoker.recommendation
         ).lower()
 
         # Para fumador, debería mencionar tabaquismo o factores de riesgo
@@ -204,7 +203,7 @@ class TestRAGPromptQuality:
     def test_prompt_includes_context(self, service):
         """Test: Prompts incluyen contexto RAG recuperado"""
         state = SimulationState(
-            edad=60, volumen_tumor_sensible=10.0, tratamiento_activo="quimio"
+            age=60, sensitive_tumor_volume=10.0, active_treatment="quimio"
         )
 
         # Simular construcción de prompt
@@ -212,7 +211,7 @@ class TestRAGPromptQuality:
         chunks = service.repository.retrieve_relevant_chunks(query, top_k=3)
 
         state_dict = state.model_dump()
-        state_dict["estadio_aproximado"] = state.estadio_aproximado
+        state_dict["estadio_aproximado"] = state.approx_stage
 
         prompt = service.prompt_templates.build_teacher_prompt(
             state=state_dict, context_chunks=chunks
@@ -235,16 +234,16 @@ class TestRAGPromptQuality:
     async def test_response_includes_sources(self, service):
         """Test: Respuesta incluye fuentes de RAG"""
         state = SimulationState(
-            edad=58, volumen_tumor_sensible=5.0, tratamiento_activo="ninguno"
+            age=58, sensitive_tumor_volume=5.0, active_treatment="ninguno"
         )
 
         response = await service.get_educational_feedback(state)
 
         # Debe incluir fuentes de los chunks
-        assert len(response.fuentes) > 0
+        assert len(response.sources) > 0
 
         # Fuentes deben ser strings válidas
-        for fuente in response.fuentes:
+        for fuente in response.sources:
             assert isinstance(fuente, str)
             assert len(fuente) > 0
 

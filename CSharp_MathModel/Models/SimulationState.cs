@@ -20,53 +20,53 @@ namespace LungCancerVR.MathModel
     {
         // Datos del Paciente
         [JsonPropertyName("edad")]
-        public int Edad { get; set; }
+        public int Age { get; set; }
         
         [JsonPropertyName("es_fumador")]
-        public bool EsFumador { get; set; }
+        public bool IsSmoker { get; set; }
         
         [JsonPropertyName("pack_years")]
         public float PackYears { get; set; }
         
         [JsonPropertyName("dieta")]
-        public string Dieta { get; set; } // "saludable", "normal", "mala"
+        public string Diet { get; set; } // "saludable", "normal", "mala"
         
         // Estado del Tumor
         [JsonPropertyName("volumen_tumor_sensible")]
-        public float VolumenTumorSensible { get; set; }
+        public float SensitiveTumorVolume { get; set; }
         
         [JsonPropertyName("volumen_tumor_resistente")]
-        public float VolumenTumorResistente { get; set; }
+        public float ResistantTumorVolume { get; set; }
         
         // Tratamiento
         [JsonPropertyName("tratamiento_activo")]
-        public string TratamientoActivo { get; set; } // "ninguno", "quimio", "radio", "inmuno"
+        public string ActiveTreatment { get; set; } // "ninguno", "quimio", "radio", "inmuno"
         
         [JsonPropertyName("dias_tratamiento")]
-        public int DiasTratamiento { get; set; }
+        public int TreatmentDays { get; set; }
         
         // Contexto
         [JsonPropertyName("modo")]
-        public string Modo { get; set; } // "libre", "biblioteca"
+        public string Mode { get; set; } // "libre", "biblioteca"
         
         [JsonPropertyName("caso_id")]
-        public string CasoId { get; set; }
+        public string CaseId { get; set; }
         
         /// <summary>
         /// Constructor por defecto
         /// </summary>
         public SimulationState()
         {
-            Edad = 60;
-            EsFumador = false;
+            Age = 60;
+            IsSmoker = false;
             PackYears = 0.0f;
-            Dieta = "normal";
-            VolumenTumorSensible = 0.0f;
-            VolumenTumorResistente = 0.0f;
-            TratamientoActivo = "ninguno";
-            DiasTratamiento = 0;
-            Modo = "libre";
-            CasoId = null;
+            Diet = "normal";
+            SensitiveTumorVolume = 0.0f;
+            ResistantTumorVolume = 0.0f;
+            ActiveTreatment = "ninguno";
+            TreatmentDays = 0;
+            Mode = "libre";
+            CaseId = null;
         }
         
         /// <summary>
@@ -79,15 +79,15 @@ namespace LungCancerVR.MathModel
             
             return new SimulationState
             {
-                Edad = patient.Edad,
-                EsFumador = patient.EsFumador,
+                Age = patient.Edad,
+                IsSmoker = patient.EsFumador,
                 PackYears = patient.PackYears,
-                Dieta = DietTypeToString(patient.Dieta),
-                VolumenTumorSensible = model.SensitiveCells,
-                VolumenTumorResistente = model.ResistantCells,
-                TratamientoActivo = "ninguno", // Debe ser actualizado externamente
-                DiasTratamiento = (int)model.CurrentTime,
-                Modo = "libre"
+                Diet = DietTypeToString(patient.Dieta),
+                SensitiveTumorVolume = model.SensitiveCells,
+                ResistantTumorVolume = model.ResistantCells,
+                ActiveTreatment = "ninguno", // Debe ser actualizado externamente
+                TreatmentDays = (int)model.CurrentTime,
+                Mode = "libre"
             };
         }
         
@@ -95,7 +95,7 @@ namespace LungCancerVR.MathModel
         /// Volumen total del tumor
         /// </summary>
         [JsonIgnore]
-        public float VolumenTotal => VolumenTumorSensible + VolumenTumorResistente;
+        public float TotalVolume => SensitiveTumorVolume + ResistantTumorVolume;
         
         /// <summary>
         /// Convierte DietType a string para JSON
@@ -142,8 +142,8 @@ namespace LungCancerVR.MathModel
         
         public override string ToString()
         {
-            return $"SimulationState: Paciente {Edad} años, Tumor: {VolumenTotal:F2} cm³, " +
-                   $"Tratamiento: {TratamientoActivo}";
+                 return $"SimulationState: Paciente {Age} años, Tumor: {TotalVolume:F2} cm³, " +
+                     $"Tratamiento: {ActiveTreatment}";
         }
     }
     
