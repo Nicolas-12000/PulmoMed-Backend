@@ -3,9 +3,21 @@ Domain Models - LungCancerVR Backend
 Modelos Pydantic para validación y serialización (SOLID: SRP)
 """
 
+from __future__ import annotations
+
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class LungState(str, Enum):
+    SANO = "sano"
+    EN_RIESGO = "en_riesgo"
+    ESTABLE = "estable"
+    PROGRESANDO = "progresando"
+    CRITICO = "critico"
+    TERMINAL = "terminal"
 
 
 class SimulationState(BaseModel):
@@ -20,6 +32,11 @@ class SimulationState(BaseModel):
     pack_years: float = Field(
         default=0.0, ge=0, le=150, description="Paquetes-año acumulados"
     )
+    # Tiempo desde último cambio de hábito (días)
+    dias_desde_cambio_tabaco: int = Field(default=0, ge=0)
+
+    # Estado sintético del pulmón (se calcula o se puede fijar)
+    lung_state: LungState | None = Field(default=None)
     dieta: Literal["saludable", "normal", "mala"] = Field(default="normal")
 
     # Estado del Tumor (valores de la simulación matemática)
@@ -56,6 +73,77 @@ class SimulationState(BaseModel):
     def volumen_total(self) -> float:
         """Volumen total del tumor"""
         return self.volumen_tumor_sensible + self.volumen_tumor_resistente
+
+    def compute_risk_score(self) -> float:
+        """Compute a simple risk score combining age and pack_years and tumor volume.
+
+        Normalized 0..1 score; higher means worse.
+        """
+        # Age factor (18-100 -> 0..1)
+        age_factor = max(0.0, min(1.0, (self.edad - 18) / (100 - 18)))
+        # Pack-years normalized to 150
+        pack_factor = min(1.0, self.pack_years / 150.0)
+        # Volume factor: assume 0-100 maps to 0..1
+        vol = self.volumen_total
+        vol_factor = min(1.0, vol / 100.0)
+        # Weighted combination
+        return 0.4 * age_factor + 0.4 * pack_factor + 0.2 * vol_factor
+
+    def update_lung_state(self) -> LungState:
+        """Update and return a computed `lung_state` from current values.
+
+        Rules (simple heuristic):
+        - If volumen_total == 0 -> SANO
+        - If risk_score < 0.2 -> EN_RIESGO
+        - If vol < 3.0 -> ESTABLE
+        - If vol between 3..20 -> PROGRESANDO
+        - If vol between 20..60 -> CRITICO
+        - else -> TERMINAL
+        """
+        vol = self.volumen_total
+        if vol <= 0.0:
+            state = LungState.SANO
+        else:
+            score = self.compute_risk_score()
+            if score < 0.2:
+                state = LungState.EN_RIESGO
+            elif vol < 3.0:
+                state = LungState.ESTABLE
+            elif vol < 20.0:
+                state = LungState.PROGRESANDO
+            elif vol < 60.0:
+                state = LungState.CRITICO
+            else:
+                state = LungState.TERMINAL
+
+        self.lung_state = state
+        return state
+
+    # --- Smoking behavior helpers ---
+    def start_smoking(self, cigarettes_per_day: int = 20) -> None:
+        """Mark the patient as smoking; future simulation steps can increase `pack_years`.
+
+        This method sets `es_fumador` and notes the change time counter reset.
+        """
+        self.es_fumador = True
+        self.dias_desde_cambio_tabaco = 0
+
+    def stop_smoking(self) -> None:
+        """Mark the patient as having stopped smoking; resets the change counter."""
+        self.es_fumador = False
+        self.dias_desde_cambio_tabaco = 0
+
+    def advance_time_and_accumulate_smoking(self, days: int, cigarettes_per_day: int = 20) -> None:
+        """Advance time in days; if patient smokes, accumulate pack-years.
+
+        pack-years approximated as: (cigarettes_per_day / 20) * (days / 365)
+        """
+        if days <= 0:
+            return
+        self.dias_desde_cambio_tabaco += days
+        if self.es_fumador:
+            added_years = (cigarettes_per_day / 20.0) * (days / 365.0)
+            self.pack_years = min(150.0, self.pack_years + added_years)
 
     @property
     def estadio_aproximado(self) -> str:

@@ -4,8 +4,10 @@ Orquesta RAG + LLM para generar feedback educativo (SOLID: SRP + DIP)
 """
 
 import logging
+from typing import List, Dict, Any, Optional
 
 from app.core.config import get_settings
+from app.llm.interface import LLMClient
 from app.llm.ollama_client import OllamaClient
 from app.models.simulation_state import SimulationState, TeacherResponse
 from app.rag.prompts import PromptTemplates
@@ -23,12 +25,55 @@ class AITeacherService:
     def __init__(
         self,
         repository=None,  # Dependency Injection
-        llm_client=None,  # Dependency Injection
-    ):
+        llm_client: Optional[LLMClient] = None,  # Dependency Injection
+    ) -> None:
         self.settings = get_settings()
         self.repository = repository or get_repository()
-        self.llm_client = llm_client or OllamaClient()
+        self.llm_client: LLMClient = llm_client or OllamaClient()
         self.prompt_templates = PromptTemplates()
+
+    # --- Safety / RAG helpers ---
+    def _is_malicious(self, text: str) -> bool:
+        """Basic check for potentially dangerous/malicious prompts.
+
+        This is intentionally simple: it prevents obvious unsafe instructions
+        from being sent to the LLM. For production, use a safety library.
+        """
+        banned = [
+            "rm -rf",
+            "shutdown",
+            "exec",
+            "execute",
+            "curl",
+            "nc ",
+            "reverse shell",
+            "bomb",
+            "kill ",
+            "exploit",
+            "malware",
+        ]
+        lower = text.lower()
+        return any(b in lower for b in banned)
+
+    def _filter_and_rerank_chunks(self, query: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Rerank chunks by their returned 'distance' and filter by threshold.
+
+        Uses `distance` returned by Chroma: lower is better. Keeps only
+        chunks with distance < settings.rerank_distance_threshold.
+        """
+        if not chunks:
+            return []
+
+        threshold = self.settings.rerank_distance_threshold
+        # Keep chunks that have numeric distance and are below threshold
+        filtered = [c for c in chunks if isinstance(c.get("distance"), (int, float)) and c.get("distance") < threshold]
+        # If none pass the threshold, return empty to signal insufficient grounding
+        if not filtered:
+            return []
+
+        # Sort ascending (smaller distance = more relevant)
+        filtered.sort(key=lambda c: float(c.get("distance", 1.0)))
+        return filtered
 
     async def get_educational_feedback(self, state: SimulationState) -> TeacherResponse:
         """
@@ -61,6 +106,26 @@ class AITeacherService:
             query=search_query, top_k=self.settings.retrieval_top_k
         )
 
+        # Rerank and filter chunks by distance threshold for grounding
+        relevant_chunks = self._filter_and_rerank_chunks(search_query, relevant_chunks)
+
+        # If no chunks pass the grounding threshold, return safe insufficient-info response
+        if not relevant_chunks:
+            return TeacherResponse(
+                explicacion=(
+                    "No dispongo de información suficiente en la base de conocimiento "
+                    "para responder con fundamento."
+                ),
+                recomendacion="No hay datos suficientes para recomendar una acción.",
+                fuentes=[],
+                advertencia=(
+                    "⚠️ No hay suficiente información en la base de conocimiento "
+                    "para proporcionar una respuesta fundamentada."
+                ),
+                retrieved_chunks=0,
+                llm_model="none",
+            )
+
         # Step 3: Construir prompt con contexto
         state_dict = state.model_dump()
         state_dict["estadio_aproximado"] = state.estadio_aproximado
@@ -70,6 +135,23 @@ class AITeacherService:
         )
 
         # Step 4: Query al LLM (mock o real)
+        # Security: sanitize prompt before sending to LLM
+        if self._is_malicious(prompt) or self._is_malicious(search_query):
+            return TeacherResponse(
+                explicacion=(
+                    "Solicitud rechazada: el contenido proporcionado parece ser "
+                    "potencialmente malicioso o realizar instrucciones peligrosas."
+                ),
+                recomendacion="No puedo procesar solicitudes que contengan instrucciones peligrosas.",
+                fuentes=[],
+                advertencia=(
+                    "⚠️ Solicitud rechazada por medidas de seguridad. Proporcione datos clínicos válidos."
+                ),
+                retrieved_chunks=0,
+                llm_model="safety-filter",
+            )
+
+        # Send prompt to LLM
         try:
             llm_response = self.llm_client.query(prompt)
         except Exception as e:

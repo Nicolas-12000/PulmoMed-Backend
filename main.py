@@ -8,6 +8,7 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from app.api.teacher_endpoint import router as teacher_router
 from app.core.config import get_settings
@@ -65,9 +66,9 @@ app.add_middleware(
 app.include_router(teacher_router)
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Inicialización al arrancar el servidor"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler: initializes resources on startup and cleans up on shutdown."""
     logger.info("=" * 60)
     logger.info(f"🚀 LungCancerVR Backend v{settings.api_version} iniciando...")
     logger.info(f"📍 Host: {settings.api_host}:{settings.api_port}")
@@ -87,15 +88,14 @@ async def startup_event():
             "⚠️  Base de conocimiento vacía. Ejecutar script de indexación de PDFs."
         )
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup al cerrar el servidor"""
     logger.info("Cerrando LungCancerVR Backend...")
-    from app.repositories.medical_knowledge_repo import get_repository
-
     repo = get_repository()
     repo.close()
+
+# Attach lifespan to app
+app.router.lifespan_context = lifespan
 
 
 @app.get("/")

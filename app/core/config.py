@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
     chunk_size: int = 512
     chunk_overlap: int = 50
+    # Reranker / grounding safety
+    rerank_distance_threshold: float = 0.7
 
     # Development
     debug: bool = True

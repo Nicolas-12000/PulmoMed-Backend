@@ -4,7 +4,7 @@ Repository Pattern: Abstrae acceso a vector database (SOLID: OCP)
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -61,7 +61,7 @@ class MedicalKnowledgeRepository:
 
     def retrieve_relevant_chunks(
         self, query: str, top_k: int | None = None
-    ) -> List[Dict[str, any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Recupera chunks relevantes para una consulta (RAG retrieval)
 
@@ -112,9 +112,9 @@ class MedicalKnowledgeRepository:
     def add_documents(
         self,
         texts: List[str],
-        metadatas: List[Dict] | None = None,
+        metadatas: List[Dict[str, Any]] | None = None,
         ids: List[str] | None = None,
-    ):
+    ) -> None:
         """
         Añade documentos a la colección (para futura indexación de PDFs)
 
@@ -147,7 +147,7 @@ class MedicalKnowledgeRepository:
 
         logger.info(f"Añadidos {len(texts)} documentos a la colección")
 
-    def get_collection_stats(self) -> Dict[str, any]:
+    def get_collection_stats(self) -> Dict[str, Any]:
         """Retorna estadísticas de la colección"""
         if self._collection is None:
             return {"status": "empty", "count": 0}
