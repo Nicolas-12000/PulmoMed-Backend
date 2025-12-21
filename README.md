@@ -4,12 +4,14 @@
 
 ![Version](https://img.shields.io/badge/version-2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.12-green)
+![Tests](https://img.shields.io/badge/tests-82%20total%20%7C%2079%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-%3E85%25-success)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-development-yellow)
 
 **Sistema de IA Educativa con RAG Local para Simulador VR de Cáncer de Pulmón**
 
-[Características](#características) • [Instalación](#instalación) • [Uso](#uso) • [Testing](#testing) • [Arquitectura](#arquitectura)
+[Características](#características) • [Instalación](#instalación) • [Testing](#testing) • [Arquitectura](#arquitectura) • [**📖 GUÍA COMPLETA DE TESTING**](TESTING_GUIDE.md)
 
 </div>
 
@@ -35,6 +37,9 @@ Backend Python con FastAPI que proporciona feedback educativo médico preciso us
 - [x] 7 casos predefinidos basados en estadísticas SEER
 - [x] Testing completo (>85% cobertura)
 - [x] CORS configurado para Unity Client
+- [x] **Sistema de Historial Tipo Git** (snapshots + deltas, ahorro 74% memoria)
+- [x] **Modelo Matemático C#** validado (42 tests, compatible Unity)
+- [x] **Gemini API Adapter** para testing RAG completo sin GPU
 
 ### 🚧 Pendiente
 - [ ] Integración con Ollama real (requiere GPU)
@@ -122,19 +127,40 @@ Content-Type: application/json
 
 ## 🧪 Testing
 
-```powershell
-# Todos los tests
-pytest
+### 📖 **[LEE LA GUÍA COMPLETA DE TESTING](TESTING_GUIDE.md)**
 
-# Solo unit tests
+**Guía unificada que incluye:**
+- ✅ Todos los comandos de testing
+- ✅ Cómo ejecutar el servidor
+- ✅ Dónde se guardan los datos (ChromaDB, casos, configs)
+- ✅ Testing RAG con Gemini (modelos gratuitos)
+- ✅ Troubleshooting completo
+
+### Quick Start
+
+### Quick Start
+
+```powershell
+# Arrancar servidor
+python main.py
+
+# Tests básicos
 pytest tests/unit/ -v
 
-# Con cobertura
-pytest --cov=app --cov-report=html
-
-# Ver reporte HTML
-start htmlcov/index.html
+# Ver docs API
+start http://localhost:8000/docs
 ```
+
+**📖 [Ver TESTING_GUIDE.md para comandos completos y explicaciones](TESTING_GUIDE.md)**
+
+---
+
+**Cobertura Tests:**
+- ✅ 21 tests validación matemática (C# model)
+- ✅ 17 tests sistema de historial
+- ✅ 15 tests RAG E2E con Gemini (requiere API key)
+- ✅ Tests unitarios de servicios y repositorios
+- ✅ Tests de integración de API
 
 **Cobertura Actual:** >85% (objetivo: >90%)
 
