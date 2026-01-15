@@ -21,17 +21,19 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./knowledge_base/embeddings"
     collection_name: str = "medical_knowledge"
 
-    # Embeddings - Modelo multilingüe para documentos en español
-    # BGE-M3: Soporta español, inglés, y 100+ idiomas
-    # Alternativas: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-    embedding_model: str = "BAAI/bge-m3"
+    # Embeddings - Modelo multilingüe LIGERO para VR
+    # paraphrase-multilingual-MiniLM: ~500MB vs BGE-M3 ~2-4GB
+    # Soporta español, suficiente calidad para RAG educativo
+    # Alternativa pesada: BAAI/bge-m3 (mejor calidad, 4x más RAM)
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_device: str = "cpu"
 
     # LLM (Ollama - requiere GPU)
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.1:8b"  # Modelo más pequeño por defecto
+    ollama_model: str = "llama3.2:3b"  # Modelo ligero para VR (3B params)
     ollama_temperature: float = 0.3
-    ollama_max_tokens: int = 1024
+    ollama_max_tokens: int = 512  # Reducido para respuestas más rápidas
+    ollama_timeout: float = 15.0  # Timeout agresivo para VR
 
     # RAG Configuration
     retrieval_top_k: int = 5

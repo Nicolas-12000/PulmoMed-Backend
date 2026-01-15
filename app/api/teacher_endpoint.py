@@ -49,12 +49,16 @@ router = APIRouter(prefix="/api/v1", tags=["AI Teacher"])
 )
 async def consultar_profesor(
     state: SimulationState,
-    service: AITeacherService = Depends(lambda: AITeacherService()),
 ) -> TeacherResponse:
     """
     Endpoint principal: Recibe estado → Retorna feedback educativo
+    Usa singleton de TeacherService para optimizar recursos.
     """
     try:
+        # Importar singleton del main
+        from main import get_teacher_service
+        service = get_teacher_service()
+        
         logger.info(
             f"Consulta recibida - Paciente: {state.age} años, "
             f"Volumen: {state.total_volume:.2f} cm³"
@@ -112,6 +116,13 @@ async def health_check() -> HealthCheckResponse:
     summary="Listar Casos de Biblioteca",
     description="Retorna lista de casos predefinidos para Modo Biblioteca basados en estadísticas SEER",
     response_model=dict,
+)
+@router.get(
+    "/casos_biblioteca",
+    summary="Listar Casos de Biblioteca (Alias)",
+    description="Alias de /library_cases para compatibilidad con Unity",
+    response_model=dict,
+    include_in_schema=False,  # No mostrar en docs (es alias)
 )
 async def list_library_cases() -> dict:
     """

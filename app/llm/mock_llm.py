@@ -1,6 +1,7 @@
 """
 Mock LLM para tests unitarios
 Permite inyectar respuestas determinísticas para pruebas
+Soporta interface async compatible con producción
 """
 
 from typing import Dict, Optional
@@ -12,6 +13,7 @@ class MockLLM(LLMClient):
     """
     Mock LLM determinístico para tests.
     Permite configurar respuestas específicas por keywords.
+    Implementa interface async para compatibilidad con producción.
     """
 
     # Respuesta por defecto cuando no hay match
@@ -36,8 +38,21 @@ class MockLLM(LLMClient):
         self.call_count = 0
         self.last_prompt: Optional[str] = None
 
-    def query(self, prompt: str) -> str:
-        """Retorna respuesta determinística basada en keywords"""
+    async def query(self, prompt: str) -> str:
+        """Retorna respuesta determinística basada en keywords (async)"""
+        self.call_count += 1
+        self.last_prompt = prompt
+        
+        prompt_lower = prompt.lower()
+        
+        for keyword, response in self.responses.items():
+            if keyword.lower() in prompt_lower:
+                return response
+        
+        return self.default_response
+    
+    def query_sync(self, prompt: str) -> str:
+        """Versión síncrona para tests simples"""
         self.call_count += 1
         self.last_prompt = prompt
         

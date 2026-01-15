@@ -1,6 +1,11 @@
 """
 FastAPI Application Entry Point
 Main entry para el backend LungCancerVR
+
+OPTIMIZACIONES:
+- Singleton para TeacherService (evita recargar embeddings)
+- Lifecycle management para HTTP clients
+- Logging estructurado para monitoreo
 """
 
 import logging
@@ -20,6 +25,21 @@ logger = logging.getLogger(__name__)
 
 # Crear aplicación FastAPI
 settings = get_settings()
+
+# Singleton para el servicio (evita recargar modelos)
+_teacher_service = None
+
+
+def get_teacher_service():
+    """Retorna singleton del TeacherService (optimización VR)"""
+    global _teacher_service
+    if _teacher_service is None:
+        from app.services.teacher_service import AITeacherService
+        from app.repositories.medical_knowledge_repo import get_repository
+        
+        repo = get_repository()
+        _teacher_service = AITeacherService(repository=repo)
+    return _teacher_service
 
 app = FastAPI(
     title=settings.api_title,
@@ -76,8 +96,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"💾 Vector DB: {settings.chroma_persist_dir}")
     logger.info("=" * 60)
 
-    # Inicializar repository (lazy loading)
+    # Inicializar repository y servicio (SINGLETON - carga embeddings UNA vez)
     from app.repositories.medical_knowledge_repo import get_repository
+    from app.llm.ollama_client import OllamaClient
 
     repo = get_repository()
     stats = repo.get_collection_stats()
@@ -87,10 +108,16 @@ async def lifespan(app: FastAPI):
         logger.warning(
             "⚠️  Base de conocimiento vacía. Ejecutar script de indexación de PDFs."
         )
+    
+    # Pre-inicializar el servicio singleton
+    service = get_teacher_service()
+    logger.info(f"🤖 LLM disponible: {service.llm_client.check_availability()}")
 
     yield
 
+    # CLEANUP: Cerrar conexiones HTTP
     logger.info("Cerrando LungCancerVR Backend...")
+    await OllamaClient.close_client()  # Cerrar connection pool
     repo = get_repository()
     repo.close()
 

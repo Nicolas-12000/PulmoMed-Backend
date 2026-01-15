@@ -5,15 +5,16 @@ from app.services.teacher_service import AITeacherService
 from app.models.simulation_state import SimulationState
 
 
-def test_ollama_mock_responses():
+@pytest.mark.asyncio
+async def test_ollama_mock_responses():
     c = OllamaClient()
     # Default mock not available
     assert c.check_availability() is False
 
-    resp_trat = c.query("¿Cuál es el mejor tratamiento?")
+    resp_trat = await c.query("¿Cuál es el mejor tratamiento?")
     assert "Recomendación Educativa" in resp_trat or "Estadio" in resp_trat
 
-    resp_prog = c.query("Evolución de la progresión y volumen")
+    resp_prog = await c.query("Evolución de la progresión y volumen")
     assert "Análisis de Progresión" in resp_prog or "Progresión" in resp_prog
 
 
@@ -26,10 +27,11 @@ class DummyRepo:
 
 
 class SimpleLLM:
+    """Simple async LLM mock for tests"""
     def __init__(self, response: str):
         self._response = response
 
-    def query(self, prompt: str) -> str:
+    async def query(self, prompt: str) -> str:
         return self._response
 
     def check_availability(self) -> bool:

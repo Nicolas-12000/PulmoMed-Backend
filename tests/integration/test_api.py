@@ -135,12 +135,13 @@ class TestAPIEndpoints:
         assert response.status_code == 422
 
     def test_listar_casos_biblioteca(self, client):
-        """Test: Endpoint de casos de biblioteca (placeholder)"""
+        """Test: Endpoint de casos de biblioteca"""
         response = client.get("/api/v1/casos_biblioteca")
 
         assert response.status_code == 200
         data = response.json()
-        assert "casos" in data
+        assert "cases" in data
+        assert "count" in data
 
     def test_consultar_profesor_modo_biblioteca(self, client):
         """Test: Consulta en modo biblioteca con caso_id"""
