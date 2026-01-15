@@ -15,31 +15,46 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_title: str = "LungCancerVR AI Teacher API"
-    api_version: str = "2.0"
+    api_version: str = "2.1"
 
     # Vector Database
     chroma_persist_dir: str = "./knowledge_base/embeddings"
     collection_name: str = "medical_knowledge"
 
-    # Embeddings
-    embedding_model: str = "BAAI/bge-base-en-v1.5"
+    # Embeddings - Modelo multilingüe para documentos en español
+    # BGE-M3: Soporta español, inglés, y 100+ idiomas
+    # Alternativas: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+    embedding_model: str = "BAAI/bge-m3"
     embedding_device: str = "cpu"
 
-    # LLM (Ollama - futuro)
+    # LLM (Ollama - requiere GPU)
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.1:70b"
+    ollama_model: str = "llama3.1:8b"  # Modelo más pequeño por defecto
     ollama_temperature: float = 0.3
     ollama_max_tokens: int = 1024
-
-    # Gemini API (Development/Testing)
-    # Removed Gemini API key support - Gemini integration deprecated
 
     # RAG Configuration
     retrieval_top_k: int = 5
     chunk_size: int = 512
     chunk_overlap: int = 50
-    # Reranker / grounding safety
-    rerank_distance_threshold: float = 0.7
+    rerank_distance_threshold: float = 0.7  # Chunks con distancia > esto se filtran
+
+    # Constantes del modelo de simulación (antes hardcodeadas)
+    # Usadas en SimulationState.compute_risk_score() y otros
+    max_pack_years: float = 150.0  # Máximo pack-years para normalización
+    max_tumor_volume: float = 100.0  # Volumen máximo para normalización (cm³)
+    min_patient_age: int = 18
+    max_patient_age: int = 100
+
+    # Constantes del sistema de historial
+    snapshot_size_bytes: int = 100  # Tamaño aproximado de un snapshot
+    delta_size_bytes: int = 25  # Tamaño aproximado de un delta
+
+    # Umbrales de estadio tumoral (volumen en cm³)
+    stage_ia_max_volume: float = 3.0
+    stage_ib_max_volume: float = 14.0
+    stage_iia_max_volume: float = 28.0
+    stage_iib_max_volume: float = 65.0
 
     # Development
     debug: bool = True

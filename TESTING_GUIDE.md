@@ -1,33 +1,38 @@
 # 🧪 Guía Completa de Testing - LungCancerVR Backend
 
-**Última actualización:** 21 de diciembre de 2025
+**Última actualización:** 14 de enero de 2026
 
 ---
 
 ## 📋 Índice Rápido
 
-1. [Setup Inicial](#-setup-inicial) (2 minutos)
+1. [Setup Inicial](#-setup-inicial)
 2. [Tests Disponibles](#-tests-disponibles)
 3. [Ejecutar Servidor](#-ejecutar-servidor-de-desarrollo)
 4. [Dónde Se Guardan Los Datos](#-dónde-se-guardan-los-datos)
-5. [Testing RAG con Gemini](#-testing-rag-con-gemini)
-6. [Troubleshooting](#-troubleshooting)
+5. [Troubleshooting](#-troubleshooting)
 
 ---
 
 ## 🚀 Setup Inicial
 
 ### 1. Activar Entorno Virtual
+
+**Linux/Mac:**
+```bash
+cd /home/nicolas/proyectos/PulmoMed-Backend
+source venv/bin/activate
+```
+
+**Windows:**
 ```powershell
 cd "C:\Users\nicolas garcia\Desktop\Plumomed"
 .\venv\Scripts\Activate.ps1
 ```
 
-### 2. (Opcional) Configurar Gemini API
-```powershell
-# Editar .env y añadir (si quieres probar RAG con LLM real):
-# GEMINI_API_KEY=tu_nueva_clave_aqui
-# Obtener key gratis: https://aistudio.google.com/apikey
+### 2. Instalar Dependencias
+```bash
+pip install -r requirements.txt
 ```
 
 ---
@@ -43,20 +48,20 @@ cd "C:\Users\nicolas garcia\Desktop\Plumomed"
 | **Integration** | `pytest tests/integration/ -v` | 10 | API Endpoints, CORS |
 | **Math Validation** | `pytest tests/test_csharp_math_validation.py -v` | 21 | Modelo C# Gompertz |
 | **Historial** | `pytest tests/unit/test_simulation_history.py -v` | 17 | Sistema Git-like |
-| **RAG con Gemini** | `pytest tests/integration/test_rag_e2e.py -v` | 15 | Pipeline RAG completo |
+| **RAG E2E** | `pytest tests/integration/test_rag_e2e.py -v` | 15 | Pipeline RAG completo |
 
 ### Ejecutar Todos los Tests
-```powershell
-# Tests backend (sin RAG Gemini)
-pytest tests/ --ignore=tests/integration/test_rag_e2e.py -v
+```bash
+# Tests completos
+pytest tests/ -v
 
 # Con cobertura
 pytest --cov=app --cov-report=html
-start htmlcov/index.html
+# Abrir htmlcov/index.html en navegador
 ```
 
 ### Tests Rápidos por Categoría
-```powershell
+```bash
 # Service Layer (4 tests, ~2 seg)
 pytest tests/unit/test_service.py -v
 
@@ -81,9 +86,9 @@ pytest tests/unit/test_simulation_history.py -v
 ## 🌐 Ejecutar Servidor de Desarrollo
 
 ### Arrancar API
-```powershell
-# Terminal 1: Arrancar servidor
-.\venv\Scripts\Activate.ps1
+```bash
+# Activar entorno y arrancar
+source venv/bin/activate  # o .\venv\Scripts\Activate.ps1 en Windows
 python main.py
 ```
 
@@ -93,51 +98,46 @@ INFO:     Started server process [12345]
 INFO:     Waiting for application startup.
 ✅ Backend iniciado correctamente
 ℹ️  ChromaDB path: ./knowledge_base/embeddings
-ℹ️  Embedding model: BAAI/bge-base-en-v1.5
+ℹ️  Embedding model: BAAI/bge-m3
 ⚠️  LLM en modo MOCK (Ollama no disponible)
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
 ### Verificar Servidor
-```powershell
-# Terminal 2: Probar endpoints
+```bash
+# Probar endpoint raíz
 curl http://localhost:8000/
 
 # Ver documentación interactiva
-start http://localhost:8000/docs
+# Abrir en navegador: http://localhost:8000/docs
 
 # Health check
 curl http://localhost:8000/api/v1/health
 ```
 
 ### Probar Endpoint Principal
-```powershell
-# Crear archivo test_request.json:
-@"
-{
-  "edad": 58,
-  "es_fumador": false,
-  "pack_years": 0,
-  "volumen_tumor_sensible": 5.0,
-  "volumen_tumor_resistente": 0.0,
-  "tratamiento_activo": "ninguno"
-}
-"@ | Out-File test_request.json -Encoding utf8
-
-# Hacer request
-curl -X POST http://localhost:8000/api/v1/consultar_profesor `
-  -H "Content-Type: application/json" `
-  -d "@test_request.json"
+```bash
+# Hacer request de prueba
+curl -X POST http://localhost:8000/api/v1/consultar_profesor \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 58,
+    "is_smoker": false,
+    "pack_years": 0,
+    "sensitive_tumor_volume": 5.0,
+    "resistant_tumor_volume": 0.0,
+    "active_treatment": "ninguno"
+  }'
 ```
 
 **Response esperado:**
 ```json
 {
-  "explicacion": "El tumor ha alcanzado un volumen que requiere...",
-  "recomendacion": "En casos similares según NCCN Guidelines...",
-  "fuentes": ["Base de conocimiento médico"],
-  "advertencia": "⚠️ ADVERTENCIA EDUCATIVA...",
+  "explanation": "El tumor ha alcanzado un volumen que requiere...",
+  "recommendation": "En casos similares según NCCN Guidelines...",
+  "sources": ["Base de conocimiento médico"],
+  "warning": "⚠️ ADVERTENCIA EDUCATIVA...",
   "retrieved_chunks": 5,
   "llm_model": "ollama-mock"
 }
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/api/v1/consultar_profesor `
 ```
 
 **¿Qué se guarda aquí?**
-- ✅ Embeddings de documentos médicos (vectores 768 dimensiones)
+- ✅ Embeddings de documentos médicos (vectores 1024 dimensiones)
 - ✅ Texto original de cada chunk
 - ✅ Metadata (fuente, página, sección)
 - ✅ Índice HNSW para búsqueda rápida
@@ -186,97 +186,31 @@ curl -X POST http://localhost:8000/api/v1/consultar_profesor `
 Los logs se muestran en consola, **no se guardan en disco** por defecto.
 
 Para guardar logs:
-```powershell
-# Redirigir a archivo
+```bash
 python main.py > logs.txt 2>&1
 ```
 
 ### 5. ¿Dónde NO se guardan datos?
-❌ **Historial de simulaciones**: No persiste automáticamente (requiere implementación)
+❌ **Historial de simulaciones**: No persiste automáticamente (en memoria)
 ❌ **Sesiones de usuario**: Backend stateless (sin cookies/sessions)
 ❌ **Queries RAG**: No se logean por defecto
-
----
-
-## 🤖 Testing RAG con Gemini
-
-### ⚠️ Nota Importante
-La API key que compartiste fue marcada como "leaked" (filtrada públicamente). Necesitas generar una nueva:
-
-**Obtener nueva key gratis:**
-1. Ve a https://aistudio.google.com/apikey
-2. Crea nueva API key
-3. Añádela a `.env`
-
-### Modelos Gratuitos Disponibles
-- ✅ **gemini-2.0-flash** (recomendado) - 1M context, estable
-- ✅ **gemini-2.5-flash** - Con razonamiento
-- ✅ **gemini-2.5-pro** - Más potente
-- ✅ **gemini-3-flash-preview** - Más reciente
-
-### Configurar Gemini
-```powershell
-# Editar .env
-notepad .env
-
-# Añadir:
-GEMINI_API_KEY=tu_nueva_clave_aqui
-```
-
-### Ejecutar Tests RAG
-```powershell
-# Todos los tests RAG (15 tests)
-$env:GEMINI_API_KEY = "tu_clave"; pytest tests/integration/test_rag_e2e.py -v
-
-# Solo adapter básico (3 tests, rápido)
-$env:GEMINI_API_KEY = "tu_clave"; pytest tests/integration/test_rag_e2e.py::TestGeminiAdapter -v
-
-# Solo pipeline E2E (6 tests)
-$env:GEMINI_API_KEY = "tu_clave"; pytest tests/integration/test_rag_e2e.py::TestRAGEndToEndWithGemini -v
-```
-
-### Ejemplo Interactivo
-```powershell
-# Ejecutar ejemplos con output detallado
-$env:GEMINI_API_KEY = "tu_clave"
-python example_gemini_rag.py
-```
-
-**Output esperado:**
-- Ejemplo 1: RAG básico con estadio temprano
-- Ejemplo 2: Caso avanzado con resistencia
-- Ejemplo 3: Solo retrieval (sin LLM)
-- Ejemplo 4: Comparación Mock vs Gemini
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### Error: "ModuleNotFoundError"
-```powershell
+```bash
 # Reinstalar dependencias
 pip install -r requirements.txt
 ```
-
-### Error: "GEMINI_API_KEY no encontrada"
-```powershell
-# Verificar que existe en .env
-cat .env | Select-String "GEMINI"
-
-# Si no existe, añadir:
-echo "GEMINI_API_KEY=tu_clave" >> .env
-```
-
-### Error: "API key reported as leaked"
-**Causa:** Compartiste la key públicamente (GitHub, chat, etc)  
-**Solución:** Genera nueva key en https://aistudio.google.com/apikey
 
 ### Error: "ChromaDB collection not found"
 **Causa:** Base de datos vacía  
 **Solución:** Automático - se crea al arrancar el servidor
 
 ### Tests Lentos
-```powershell
+```bash
 # Ejecutar solo tests rápidos (<5 seg)
 pytest tests/unit/ -v
 
@@ -286,11 +220,14 @@ pytest -n 4  # 4 workers paralelos
 ```
 
 ### Puerto 8000 Ocupado
-```powershell
+```bash
 # Cambiar puerto en .env
 API_PORT=8001
 
-# O matar proceso
+# O matar proceso (Linux)
+pkill -f "python main.py"
+
+# Windows PowerShell
 Get-Process | Where-Object {$_.ProcessName -eq "python"} | Stop-Process
 ```
 
@@ -308,13 +245,12 @@ Get-Process | Where-Object {$_.ProcessName -eq "python"} | Stop-Process
 | **API Endpoints** | 10 tests | ✅ 100% |
 | **Modelo C# Gompertz** | 21 tests | ✅ 100% |
 | **Sistema Historial** | 17 tests | ✅ 100% |
-| **RAG con Gemini** | 15 tests | ⏸️ Requiere API key |
+| **RAG Pipeline** | 15 tests | ✅ 100% |
 
-**Total: 80 tests** | **Cobertura: >85%**
+**Total: 80+ tests** | **Cobertura: >85%**
 
 ### 🚧 Pendiente
-- [ ] Obtener nueva API key de Gemini
-- [ ] Indexar PDFs médicos (NCCN Guidelines)
+- [ ] Indexar PDFs médicos (NCCN Guidelines en español)
 - [ ] Integración con Ollama local (requiere GPU)
 - [ ] Frontend Unity (otro desarrollador)
 
@@ -322,24 +258,21 @@ Get-Process | Where-Object {$_.ProcessName -eq "python"} | Stop-Process
 
 ## 🎯 Comandos Más Usados
 
-```powershell
+```bash
 # Arrancar servidor
 python main.py
 
-# Todos los tests (sin Gemini)
-pytest tests/ --ignore=tests/integration/test_rag_e2e.py -v
+# Todos los tests
+pytest tests/ -v
 
 # Tests rápidos (<5 seg)
 pytest tests/unit/ -v
 
 # Ver docs API
-start http://localhost:8000/docs
+# Abrir http://localhost:8000/docs
 
 # Health check
 curl http://localhost:8000/api/v1/health
-
-# Test con Gemini (si tienes key)
-$env:GEMINI_API_KEY = "tu_clave"; python example_gemini_rag.py
 ```
 
 ---
@@ -360,11 +293,7 @@ $env:GEMINI_API_KEY = "tu_clave"; python example_gemini_rag.py
 - [ ] `pytest tests/integration/test_api.py -v` → Todos pasan ✅
 - [ ] `python main.py` → Servidor arranca ✅
 - [ ] `curl http://localhost:8000/` → Responde ✅
-- [ ] (Opcional) Obtener API key de Gemini
-- [ ] (Opcional) `pytest tests/integration/test_rag_e2e.py -v` → Tests RAG
 
 ---
-
-**¿Dudas?** Todo está implementado y documentado. El backend funciona al 100% con MockLLM. Para usar Gemini real, solo necesitas una nueva API key (la anterior fue filtrada).
 
 **Estado:** ✅ **LISTO PARA DESARROLLO**

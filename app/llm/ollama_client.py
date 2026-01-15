@@ -1,113 +1,163 @@
 """
-LLM Client - Ollama Integration (Plug-in)
-Placeholder mock hasta tener GPU disponible
+LLM Client - Implementación unificada para Ollama y Mock
+Soporta modo mock (sin GPU) y Ollama real (con GPU)
 """
 
+import logging
+from typing import Optional
+
 from app.core.config import get_settings
+from app.llm.interface import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
-class OllamaClient:
+class OllamaClient(LLMClient):
     """
-    Cliente para Ollama LLM (SOLID: Single Responsibility)
-    Actualmente retorna respuestas mock educativas
+    Cliente unificado para LLM (SOLID: Single Responsibility)
+    
+    Modos de operación:
+    - Mock: Respuestas educativas predefinidas (sin GPU)
+    - Ollama: LLM real local (requiere GPU y Ollama instalado)
     """
 
-    def __init__(self):
+    # Respuestas mock categorizadas por contexto
+    MOCK_RESPONSES = {
+        "treatment": (
+            "**Explicación del Estado Actual:**\n\n"
+            "El tumor ha alcanzado un volumen que requiere intervención "
+            "terapéutica. Las células cancerosas siguen un crecimiento "
+            "gompertziano, donde la tasa de crecimiento disminuye a medida "
+            "que el tumor se acerca a la capacidad de carga del tejido pulmonar.\n\n"
+            "**Recomendación Educativa:**\n\n"
+            "En casos similares según NCCN Guidelines 2024:\n"
+            "- **Estadio I-II**: Resección quirúrgica + quimioterapia adyuvante\n"
+            "- **Estadio III**: Quimiorradioterapia + inmunoterapia (durvalumab)\n"
+            "- **Estadio IV**: Inmunoterapia o terapia dirigida según mutaciones\n\n"
+            "**Disclaimer:** Simulación educativa. Las decisiones clínicas reales "
+            "requieren evaluación completa por oncólogo."
+        ),
+        "progression": (
+            "**Análisis de Progresión Tumoral:**\n\n"
+            "El modelo matemático (Gompertz modificado) muestra crecimiento "
+            "exponencial temprano. Tiempo de duplicación: ~120-180 días, "
+            "consistente con adenocarcinomas pulmonares.\n\n"
+            "**Mecanismo Biológico:**\n"
+            "- Células sensibles dominan el volumen\n"
+            "- Angiogénesis activa para volúmenes >0.5 cm³\n"
+            "- Posible desarrollo de hipoxia central\n\n"
+            "**Interpretación Educativa:**\n"
+            "Patrón típico de NSCLC sin tratamiento. Intervención temprana "
+            "(estadios I-II) tiene supervivencia a 5 años del 60-80%.\n\n"
+            "**Fuente:** SEER Database 2015-2020, NCCN Guidelines v3.2024"
+        ),
+        "default": (
+            "**Análisis General del Caso:**\n\n"
+            "La simulación refleja un caso de NSCLC con parámetros realistas. "
+            "El modelo considera:\n\n"
+            "1. **Factores de Riesgo:** Edad, tabaquismo, dieta\n"
+            "2. **Dinámica Tumoral:** Crecimiento gompertziano bifásico\n"
+            "3. **Respuesta a Tratamiento:** Eficacia según tipo y resistencia\n\n"
+            "**Objetivo Educativo:**\n"
+            "Comprender cómo los factores del paciente influyen en la progresión. "
+            "Las decisiones clínicas requieren evidencia y análisis molecular.\n\n"
+            "**Nota:** Este simulador tiene fines educativos únicamente."
+        ),
+    }
+
+    def __init__(self, force_mock: bool = False):
+        """
+        Args:
+            force_mock: Si True, usa mock aunque Ollama esté disponible (para tests)
+        """
         self.settings = get_settings()
-        self.is_available = False  # Cambiar a True cuando Ollama esté listo
+        self._force_mock = force_mock
+        self._ollama_available: Optional[bool] = None
+
+    @property
+    def is_available(self) -> bool:
+        """Verifica si Ollama está disponible (lazy check)"""
+        if self._force_mock:
+            return False
+        
+        if self._ollama_available is None:
+            self._ollama_available = self._check_ollama_connection()
+        
+        return self._ollama_available
+
+    def _check_ollama_connection(self) -> bool:
+        """Verifica conexión con Ollama server"""
+        try:
+            import httpx
+            response = httpx.get(
+                f"{self.settings.ollama_base_url}/api/tags",
+                timeout=2.0
+            )
+            if response.status_code == 200:
+                logger.info(f"✅ Ollama disponible en {self.settings.ollama_base_url}")
+                return True
+        except Exception as e:
+            logger.debug(f"Ollama no disponible: {e}")
+        
+        return False
 
     def query(self, prompt: str) -> str:
         """
-        Envía prompt al LLM y retorna respuesta
-
-        MOCK ACTUAL: Respuesta educativa genérica
-        FUTURO (con Ollama):
-            from langchain_community.llms import Ollama
-            llm = Ollama(
-                base_url=self.settings.ollama_base_url,
-                model=self.settings.ollama_model,
-                temperature=self.settings.ollama_temperature
-            )
-            return llm.invoke(prompt)
+        Envía prompt al LLM y retorna respuesta.
+        Usa mock si Ollama no está disponible.
         """
         if not self.is_available:
             return self._mock_response(prompt)
 
-        # TODO: Implementar cuando Ollama esté disponible
-        raise NotImplementedError("Ollama no está configurado aún")
+        return self._ollama_query(prompt)
+
+    def _ollama_query(self, prompt: str) -> str:
+        """Consulta real a Ollama"""
+        try:
+            import httpx
+            
+            response = httpx.post(
+                f"{self.settings.ollama_base_url}/api/generate",
+                json={
+                    "model": self.settings.ollama_model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": self.settings.ollama_temperature,
+                        "num_predict": self.settings.ollama_max_tokens,
+                    }
+                },
+                timeout=60.0
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("response", "")
+            
+            logger.error(f"Error Ollama: {response.status_code}")
+            return self._mock_response(prompt)
+            
+        except Exception as e:
+            logger.error(f"Error al consultar Ollama: {e}")
+            return self._mock_response(prompt)
 
     def _mock_response(self, prompt: str) -> str:
-        """
-        Respuesta mock educativa mientras no haya GPU
-        Simula un LLM médico bien calibrado
-        """
-        # Detectar tipo de consulta en el prompt
-        if "tratamiento" in prompt.lower():
-            return (
-                "**Explicación del Estado Actual:**\n\n"
-                "El tumor ha alcanzado un volumen que requiere intervención "
-                "terapéutica. Las células cancerosas siguen un crecimiento "
-                "gompertziano, donde la tasa de crecimiento disminuye a medida "
-                "que el tumor se acerca a la capacidad de carga del tejido "
-                "pulmonar.\n\n"
-                "**Recomendación Educativa:**\n\n"
-                "En casos similares según NCCN Guidelines 2024:\n"
-                "- **Estadio I-II**: Resección quirúrgica seguida de quimioterapia "
-                "adyuvante (cisplatino + pemetrexed)\n"
-                "- **Estadio III**: Quimiorradioterapia concurrente + inmunoterapia "
-                "de consolidación (durvalumab)\n"
-                "- **Estadio IV**: Inmunoterapia (pembrolizumab) o terapia dirigida "
-                "según mutaciones\n\n"
-                "**Factores de Riesgo Detectados:**\n"
-                "El tabaquismo (pack-years elevado) incrementa la probabilidad "
-                "de resistencia a tratamientos. La progresión puede seguir "
-                "patrones de resistencia adquirida.\n\n"
-                "**Disclaimer:** Esta es una simulación educativa. Las decisiones "
-                "clínicas reales requieren biopsia, estadificación TNM completa, y "
-                "análisis molecular (EGFR, ALK, ROS1, PD-L1)."
-            )
-
-        if "progresión" in prompt.lower() or "volumen" in prompt.lower():
-            return (
-                "**Análisis de Progresión Tumoral:**\n\n"
-                "El modelo matemático (Gompertz modificado) muestra que el "
-                "tumor está en fase de crecimiento exponencial temprano. La "
-                "tasa de duplicación actual sugiere un tiempo de duplicación de "
-                "aprox. 120-180 días, consistente con adenocarcinomas pulmonares.\n\n"
-                "**Mecanismo Biológico:**\n"
-                "- Las células sensibles dominan el volumen total\n"
-                "- La angiogénesis tumoral está activa (necesaria para volúmenes "
-                ">0.5 cm³)\n"
-                "- La hipoxia central puede estar desarrollándose, favoreciendo "
-                "resistencia\n\n"
-                "**Interpretación Educativa:**\n"
-                "Este patrón de crecimiento es típico en NSCLC sin tratamiento. "
-                "La intervención temprana (estadios I-II) tiene tasas de "
-                "supervivencia a 5 años del 60-80%, mientras que estadios "
-                "avanzados caen a 10-15%.\n\n"
-                "**Fuente:** SEER Database 2015-2020, NCCN NSCLC Guidelines v3.2024"
-            )
-
-        # Default general analysis
-        return (
-            "**Análisis General del Caso:**\n\n"
-            "La simulación refleja un caso de cáncer de pulmón no microcítico (NSCLC) "
-            "con parámetros realistas basados en datos epidemiológicos. El modelo "
-            "considera:\n\n"
-            "1. **Factores de Riesgo:** Edad, tabaquismo, dieta y predisposición "
-            "genética\n"
-            "2. **Dinámica Tumoral:** Crecimiento gompertziano con dos poblaciones "
-            "(sensibles/resistentes)\n"
-            "3. **Respuesta a Tratamiento:** Eficacia dependiente del tipo de "
-            "terapia y resistencia\n\n"
-            "**Objetivo Educativo:**\n"
-            "Comprender cómo los factores del paciente influyen en la progresión y "
-            "respuesta terapéutica. Las decisiones clínicas deben basarse en "
-            "evidencia (guías NCCN) y análisis molecular individualizado.\n\n"
-            "**Nota Importante:** Este simulador tiene fines educativos únicamente. "
-            "No sustituye el criterio clínico ni las pruebas diagnósticas reales."
-        )
+        """Genera respuesta mock educativa basada en el contexto del prompt"""
+        prompt_lower = prompt.lower()
+        
+        if "tratamiento" in prompt_lower or "treatment" in prompt_lower:
+            return self.MOCK_RESPONSES["treatment"]
+        
+        if any(kw in prompt_lower for kw in ["progresión", "volumen", "progression"]):
+            return self.MOCK_RESPONSES["progression"]
+        
+        return self.MOCK_RESPONSES["default"]
 
     def check_availability(self) -> bool:
-        """Verifica si Ollama está disponible"""
+        """Implementación del protocolo LLMClient"""
         return self.is_available
+
+    def get_model_name(self) -> str:
+        """Retorna el nombre del modelo en uso"""
+        if self.is_available:
+            return f"ollama-{self.settings.ollama_model}"
+        return "ollama-mock"

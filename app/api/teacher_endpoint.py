@@ -56,8 +56,8 @@ async def consultar_profesor(
     """
     try:
         logger.info(
-            f"Consulta recibida - Paciente: {state.edad} años, "
-            f"Volumen: {state.volumen_total:.2f} cm³"
+            f"Consulta recibida - Paciente: {state.age} años, "
+            f"Volumen: {state.total_volume:.2f} cm³"
         )
 
         response = await service.get_educational_feedback(state)
@@ -108,16 +108,64 @@ async def health_check() -> HealthCheckResponse:
 
 
 @router.get(
-    "/casos_biblioteca",
+    "/library_cases",
     summary="Listar Casos de Biblioteca",
-    description="Retorna lista de casos predefinidos para Modo Biblioteca",
+    description="Retorna lista de casos predefinidos para Modo Biblioteca basados en estadísticas SEER",
+    response_model=dict,
 )
-async def listar_casos_biblioteca() -> dict:
+async def list_library_cases() -> dict:
     """
-    Lista casos predefinidos (SEER-based)
-    TODO: Implementar cuando se creen los JSONs de casos
+    Lista casos predefinidos basados en estadísticas SEER.
+    Carga los casos desde knowledge_base/casos_biblioteca.json
     """
-    return {
-        "casos": [],
-        "mensaje": "Funcionalidad de casos de biblioteca en desarrollo",
-    }
+    import json
+    from pathlib import Path
+
+    cases_path = Path(__file__).parent.parent.parent / "knowledge_base" / "casos_biblioteca.json"
+
+    try:
+        with open(cases_path, "r", encoding="utf-8") as f:
+            cases = json.load(f)
+        
+        return {
+            "count": len(cases),
+            "cases": cases,
+        }
+    except FileNotFoundError:
+        logger.error(f"Archivo de casos no encontrado: {cases_path}")
+        return {"count": 0, "cases": [], "error": "Archivo de casos no encontrado"}
+    except json.JSONDecodeError as e:
+        logger.error(f"Error al parsear JSON de casos: {e}")
+        return {"count": 0, "cases": [], "error": "Error al parsear archivo de casos"}
+
+
+@router.get(
+    "/library_cases/{case_id}",
+    summary="Obtener Caso Específico",
+    description="Retorna un caso específico por su ID",
+    response_model=dict,
+)
+async def get_library_case(case_id: str) -> dict:
+    """
+    Obtiene un caso específico de la biblioteca por su ID.
+    """
+    import json
+    from pathlib import Path
+
+    cases_path = Path(__file__).parent.parent.parent / "knowledge_base" / "casos_biblioteca.json"
+
+    try:
+        with open(cases_path, "r", encoding="utf-8") as f:
+            cases = json.load(f)
+        
+        # Buscar el caso por ID
+        for case in cases:
+            if case.get("caso_id") == case_id:
+                return {"found": True, "case": case}
+        
+        raise HTTPException(status_code=404, detail=f"Caso '{case_id}' no encontrado")
+    
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Archivo de casos no encontrado")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Error al parsear archivo de casos")

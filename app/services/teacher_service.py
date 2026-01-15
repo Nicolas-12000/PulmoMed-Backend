@@ -268,7 +268,7 @@ class AITeacherService:
             else "ollama-real"
         )
 
-        # Map Spanish-parsed parts into English-named fields
+        # Mapear campos parseados a TeacherResponse
         return TeacherResponse(
             explanation=explicacion or "Análisis en progreso",
             recommendation=recomendacion or "Consultar directrices clínicas",
@@ -277,13 +277,3 @@ class AITeacherService:
             retrieved_chunks=len(chunks),
             llm_model=llm_model,
         )
-
-    def get_case_summary(self, caso_id: str) -> dict:
-        """
-        Retorna resumen educativo de un caso de biblioteca
-        (Funcionalidad futura - placeholder)
-        """
-        return {
-            "caso_id": caso_id,
-            "summary": "Funcionalidad de resumen de casos en desarrollo",
-        }

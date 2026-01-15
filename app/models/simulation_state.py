@@ -76,61 +76,25 @@ class SimulationState(BaseModel):
         """Volumen total del tumor"""
         return self.sensitive_tumor_volume + self.resistant_tumor_volume
 
-    # Spanish convenience properties for compatibility with existing code/tests
-    @property
-    def volumen_total(self) -> float:
-        return self.total_volume
-
-    @property
-    def volumen_tumor_sensible(self) -> float:
-        return self.sensitive_tumor_volume
-
-    @property
-    def volumen_tumor_resistente(self) -> float:
-        return self.resistant_tumor_volume
-
-    @property
-    def tratamiento_activo(self) -> str:
-        return self.active_treatment
-
-    @property
-    def dias_tratamiento(self) -> int:
-        return self.treatment_days
-
-    @property
-    def modo(self) -> str:
-        return self.mode
-
-    @property
-    def caso_id(self) -> str | None:
-        return self.case_id
-
-    @property
-    def estadio_aproximado(self) -> str:
-        return self.approx_stage
-
-    # Additional Spanish convenience properties
-    @property
-    def edad(self) -> int:
-        return self.age
-
-    @property
-    def es_fumador(self) -> bool:
-        return self.is_smoker
-
     def compute_risk_score(self) -> float:
-        """Compute a simple risk score combining age and pack_years and tumor volume.
+        """Calcula score de riesgo combinando edad, pack_years y volumen tumoral.
 
-        Normalized 0..1 score; higher means worse.
+        Score normalizado 0..1; mayor = peor pronóstico.
         """
-        # Age factor (18-100 -> 0..1)
-        age_factor = max(0.0, min(1.0, (self.age - 18) / (100 - 18)))
-        # Pack-years normalized to 150
-        pack_factor = min(1.0, self.pack_years / 150.0)
-        # Volume factor: assume 0-100 maps to 0..1
-        vol = self.total_volume
-        vol_factor = min(1.0, vol / 100.0)
-        # Weighted combination
+        from app.core.config import get_settings
+        settings = get_settings()
+        
+        # Factor edad (18-100 -> 0..1)
+        age_range = settings.max_patient_age - settings.min_patient_age
+        age_factor = max(0.0, min(1.0, (self.age - settings.min_patient_age) / age_range))
+        
+        # Factor tabaquismo (pack-years normalizado)
+        pack_factor = min(1.0, self.pack_years / settings.max_pack_years)
+        
+        # Factor volumen tumoral
+        vol_factor = min(1.0, self.total_volume / settings.max_tumor_volume)
+        
+        # Combinación ponderada
         return 0.4 * age_factor + 0.4 * pack_factor + 0.2 * vol_factor
 
     def update_lung_state(self) -> LungState:
@@ -178,31 +142,37 @@ class SimulationState(BaseModel):
         self.days_since_smoking_change = 0
 
     def advance_time_and_accumulate_smoking(self, days: int, cigarettes_per_day: int = 20) -> None:
-        """Advance time in days; if patient smokes, accumulate pack-years.
+        """Avanza el tiempo en días; si el paciente fuma, acumula pack-years.
 
-        pack-years approximated as: (cigarettes_per_day / 20) * (days / 365)
+        pack-years aproximado como: (cigarrillos_por_dia / 20) * (dias / 365)
         """
+        from app.core.config import get_settings
+        
         if days <= 0:
             return
         self.days_since_smoking_change += days
         if self.is_smoker:
             added_years = (cigarettes_per_day / 20.0) * (days / 365.0)
-            self.pack_years = min(150.0, self.pack_years + added_years)
+            max_pack = get_settings().max_pack_years
+            self.pack_years = min(max_pack, self.pack_years + added_years)
 
     @property
     def approx_stage(self) -> str:
         """
-        Estimación del estadio TNM basado en volumen
-        Simplificación educativa (no diagnóstico real)
+        Estimación del estadio TNM basado en volumen.
+        Simplificación educativa (no diagnóstico real).
         """
+        from app.core.config import get_settings
+        settings = get_settings()
+        
         vol = self.total_volume
-        if vol < 3.0:
+        if vol < settings.stage_ia_max_volume:
             return "IA (T1a)"
-        elif vol < 14.0:
+        elif vol < settings.stage_ib_max_volume:
             return "IB (T2a)"
-        elif vol < 28.0:
+        elif vol < settings.stage_iia_max_volume:
             return "IIA (T2b)"
-        elif vol < 65.0:
+        elif vol < settings.stage_iib_max_volume:
             return "IIB (T3)"
         else:
             return "IIIA+ (T4 o avanzado)"
@@ -234,7 +204,7 @@ class TeacherResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
 
-class CasoBiblioteca(BaseModel):
+class LibraryCase(BaseModel):
     """
     Caso predefinido para Modo Biblioteca
     Basado en estadísticas SEER y guías NCCN
@@ -244,62 +214,21 @@ class CasoBiblioteca(BaseModel):
     title: str = Field(..., description="Título descriptivo del caso", alias="titulo")
     description: str = Field(..., description="Historia clínica resumida", alias="descripcion")
 
-    # Patient parameters (Spanish strings kept in descriptions)
+    # Parámetros del paciente
     age: int = Field(..., alias="edad")
     is_smoker: bool = Field(..., alias="es_fumador")
     pack_years: float = Field(..., alias="pack_years")
     diet: Literal["saludable", "normal", "mala"] = Field(..., alias="dieta")
 
-    # Initial tumor state
+    # Estado inicial del tumor
     initial_sensitive_volume: float = Field(..., alias="volumen_inicial_sensible")
     initial_resistant_volume: float = Field(default=0.0, alias="volumen_inicial_resistente")
 
-    # Educational context
+    # Contexto educativo
     learning_objectives: list[str] = Field(default_factory=list, alias="objetivos_aprendizaje")
     statistical_source: str = Field(..., description="Referencia SEER/NCCN", alias="fuente_estadistica")
 
     model_config = {"populate_by_name": True}
-
-    # Spanish-named convenience properties for backward-compatibility with tests
-    @property
-    def caso_id(self) -> str:
-        return self.case_id
-
-    @property
-    def titulo(self) -> str:
-        return self.title
-
-    @property
-    def descripcion(self) -> str:
-        return self.description
-
-    @property
-    def edad(self) -> int:
-        return self.age
-
-    @property
-    def es_fumador(self) -> bool:
-        return self.is_smoker
-
-    @property
-    def dieta(self) -> str:
-        return self.diet
-
-    @property
-    def volumen_inicial_sensible(self) -> float:
-        return self.initial_sensitive_volume
-
-    @property
-    def volumen_inicial_resistente(self) -> float:
-        return self.initial_resistant_volume
-
-    @property
-    def objetivos_aprendizaje(self) -> list[str]:
-        return self.learning_objectives
-
-    @property
-    def fuente_estadistica(self) -> str:
-        return self.statistical_source
 
 
 class HealthCheckResponse(BaseModel):

@@ -6,7 +6,7 @@ Prueba validaciones Pydantic y lógica de negocio
 import pytest
 from pydantic import ValidationError
 
-from app.models.simulation_state import CasoBiblioteca, SimulationState, TeacherResponse
+from app.models.simulation_state import LibraryCase, SimulationState, TeacherResponse
 
 
 class TestSimulationState:
@@ -96,12 +96,12 @@ class TestTeacherResponse:
         assert "educativo" in response.warning.lower()
 
 
-class TestCasoBiblioteca:
-    """Tests para modelo CasoBiblioteca"""
+class TestLibraryCase:
+    """Tests para modelo LibraryCase"""
 
-    def test_valid_caso_creation(self):
+    def test_valid_case_creation(self):
         """Test: Creación válida de caso predefinido"""
-        caso = CasoBiblioteca(
+        case = LibraryCase(
             caso_id="TEST_001",
             titulo="Caso de Prueba",
             descripcion="Paciente ficticio para testing",
@@ -113,13 +113,13 @@ class TestCasoBiblioteca:
             fuente_estadistica="SEER 2020",
         )
 
-        assert caso.caso_id == "TEST_001"
-        assert caso.edad == 60
-        assert caso.volumen_inicial_resistente == 0.0  # Default
+        assert case.case_id == "TEST_001"
+        assert case.age == 60
+        assert case.initial_resistant_volume == 0.0  # Default
 
-    def test_caso_with_learning_objectives(self):
+    def test_case_with_learning_objectives(self):
         """Test: Caso con objetivos de aprendizaje"""
-        caso = CasoBiblioteca(
+        case = LibraryCase(
             caso_id="TEST_002",
             titulo="Test",
             descripcion="Test",
@@ -132,4 +132,4 @@ class TestCasoBiblioteca:
             objetivos_aprendizaje=["Objetivo 1", "Objetivo 2"],
         )
 
-        assert len(caso.objetivos_aprendizaje) == 2
+        assert len(case.learning_objectives) == 2

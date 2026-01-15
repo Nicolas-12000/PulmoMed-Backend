@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
+![Version](https://img.shields.io/badge/version-2.1-blue)
 ![Python](https://img.shields.io/badge/python-3.12-green)
 ![Tests](https://img.shields.io/badge/tests-82%20total%20%7C%2079%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-%3E85%25-success)
@@ -21,7 +21,7 @@
 
 Backend Python con FastAPI que proporciona feedback educativo médico preciso usando:
 - **RAG (Retrieval-Augmented Generation)** con ChromaDB
-- **Embeddings médicos** (BGE-base-en-v1.5)
+- **Embeddings multilingües** (BGE-M3, soporta español)
 - **LLM local** (Ollama - opcional, actualmente en modo mock)
 - **Arquitectura SOLID** (Repository, Service Layer, Dependency Injection)
 
@@ -34,17 +34,16 @@ Backend Python con FastAPI que proporciona feedback educativo médico preciso us
 - [x] Service Layer con lógica de negocio educativa
 - [x] Repository Pattern (fácil cambiar a Weaviate después)
 - [x] LLM Mock con respuestas educativas realistas
-- [x] 7 casos predefinidos basados en estadísticas SEER
+- [x] **7 casos predefinidos** basados en estadísticas SEER (endpoint `/api/v1/library_cases`)
 - [x] Testing completo (>85% cobertura)
 - [x] CORS configurado para Unity Client
 - [x] **Sistema de Historial Tipo Git** (snapshots + deltas, ahorro 74% memoria)
 - [x] **Modelo Matemático C#** validado (42 tests, compatible Unity)
-- [x] **Gemini API Adapter** para testing RAG completo sin GPU
+- [x] **Embeddings multilingües** (BGE-M3 para documentos en español)
 
 ### 🚧 Pendiente
 - [ ] Integración con Ollama real (requiere GPU)
 - [ ] Indexación de PDFs médicos (NCCN Guidelines, estudios SEER)
-- [ ] Endpoint para casos de biblioteca completo
 - [ ] Deployment con Docker
 
 ## 🚀 Instalación
@@ -102,26 +101,26 @@ POST http://localhost:8000/api/v1/consultar_profesor
 Content-Type: application/json
 
 {
-  "edad": 58,
-  "es_fumador": false,
+  "age": 58,
+  "is_smoker": false,
   "pack_years": 15.0,
-  "dieta": "saludable",
-  "volumen_tumor_sensible": 2.5,
-  "volumen_tumor_resistente": 0.0,
-  "tratamiento_activo": "ninguno",
-  "modo": "libre"
+  "diet": "saludable",
+  "sensitive_tumor_volume": 2.5,
+  "resistant_tumor_volume": 0.0,
+  "active_treatment": "ninguno",
+  "mode": "libre"
 }
 ```
 
 **Response:**
 ```json
 {
-  "explicacion": "El tumor ha alcanzado un volumen que requiere...",
-  "recomendacion": "En casos similares según NCCN Guidelines...",
-  "fuentes": ["NCCN Guidelines 2024", "SEER Database"],
-  "advertencia": "⚠️ ADVERTENCIA EDUCATIVA: Este es un simulador...",
+  "explanation": "El tumor ha alcanzado un volumen que requiere...",
+  "recommendation": "En casos similares según NCCN Guidelines...",
+  "sources": ["NCCN Guidelines 2024", "SEER Database"],
+  "warning": "⚠️ ADVERTENCIA EDUCATIVA: Este es un simulador...",
   "retrieved_chunks": 5,
-  "model_used": "ollama-mock"
+  "llm_model": "ollama-mock"
 }
 ```
 

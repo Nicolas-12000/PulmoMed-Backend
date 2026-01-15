@@ -21,7 +21,7 @@ async def test_response_includes_sources_and_uses_mockllm():
     ]
 
     repo = DummyRepo(chunks)
-    mock_llm = MockLLM(deterministic_responses={"tratamiento": "RESP_TRATAMIENTO"})
+    mock_llm = MockLLM(responses={"tratamiento": "RESP_TRATAMIENTO"})
     service = AITeacherService(repository=repo, llm_client=mock_llm)
 
     state = SimulationState(
