@@ -109,12 +109,12 @@ namespace LungCancerVR.MathModel
         private float GetAdjustedRs()
         {
             return rs_base * patient.GetAgeGrowthModifier() * 
-                   patient.GetDietModifier() * patient.FactorGenetico;
+                   patient.GetDietModifier() * patient.GeneticFactor;
         }
         
         private float GetAdjustedRr()
         {
-            return rr_base * patient.GetDietModifier() * patient.FactorGenetico;
+            return rr_base * patient.GetDietModifier() * patient.GeneticFactor;
         }
         
         /// <summary>

@@ -18,10 +18,10 @@ namespace LungCancerVR.Examples
             
             // 1. Crear perfil de paciente
             var patient = new PatientProfile(
-                edad: 65,
-                esFumador: true,
+                age: 65,
+                isSmoker: true,
                 packYears: 30,
-                dieta: DietType.Normal
+                diet: DietType.Normal
             );
             
             Console.WriteLine($"Paciente: {patient}");

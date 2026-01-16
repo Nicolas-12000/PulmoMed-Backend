@@ -279,16 +279,16 @@ public IEnumerator CargarCaso(string casoId, Action<SimulationState> callback)
 StartCoroutine(CargarCaso("estadio_ia_temprano", casoState => {
     // Aplicar caso al modelo
     var patient = new PatientProfile(
-        casoState.Edad,
-        casoState.EsFumador,
+        casoState.Age,
+        casoState.IsSmoker,
         casoState.PackYears,
-        SimulationState.StringToDietType(casoState.Dieta)
+        SimulationState.StringToDietType(casoState.Diet)
     );
     
     tumorModel = new TumorGrowthModel(patient);
     tumorModel.SetInitialConditions(
-        casoState.VolumenTumorSensible,
-        casoState.VolumenTumorResistente
+        casoState.SensitiveTumorVolume,
+        casoState.ResistantTumorVolume
     );
 }));
 ```

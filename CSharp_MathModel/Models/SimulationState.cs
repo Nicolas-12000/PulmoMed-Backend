@@ -79,10 +79,10 @@ namespace LungCancerVR.MathModel
             
             return new SimulationState
             {
-                Age = patient.Edad,
-                IsSmoker = patient.EsFumador,
+                Age = patient.Age,
+                IsSmoker = patient.IsSmoker,
                 PackYears = patient.PackYears,
-                Diet = DietTypeToString(patient.Dieta),
+                Diet = DietTypeToString(patient.Diet),
                 SensitiveTumorVolume = model.SensitiveCells,
                 ResistantTumorVolume = model.ResistantCells,
                 ActiveTreatment = "ninguno", // Debe ser actualizado externamente
@@ -104,9 +104,9 @@ namespace LungCancerVR.MathModel
         {
             return diet switch
             {
-                DietType.Saludable => "saludable",
+                DietType.Healthy => "saludable",
                 DietType.Normal => "normal",
-                DietType.Mala => "mala",
+                DietType.Poor => "mala",
                 _ => "normal"
             };
         }
@@ -118,9 +118,9 @@ namespace LungCancerVR.MathModel
         {
             return diet?.ToLower() switch
             {
-                "saludable" => DietType.Saludable,
+                "saludable" => DietType.Healthy,
                 "normal" => DietType.Normal,
-                "mala" => DietType.Mala,
+                "mala" => DietType.Poor,
                 _ => DietType.Normal
             };
         }
@@ -154,16 +154,16 @@ namespace LungCancerVR.MathModel
     public class TeacherResponse
     {
         [JsonPropertyName("explicacion")]
-        public string Explicacion { get; set; }
+        public string Explanation { get; set; }
         
         [JsonPropertyName("recomendacion")]
-        public string Recomendacion { get; set; }
+        public string Recommendation { get; set; }
         
         [JsonPropertyName("fuentes")]
-        public string[] Fuentes { get; set; }
+        public string[] Sources { get; set; }
         
         [JsonPropertyName("advertencia")]
-        public string Advertencia { get; set; }
+        public string Warning { get; set; }
         
         [JsonPropertyName("retrieved_chunks")]
         public int RetrievedChunks { get; set; }
@@ -173,7 +173,7 @@ namespace LungCancerVR.MathModel
         
         public TeacherResponse()
         {
-            Fuentes = Array.Empty<string>();
+            Sources = Array.Empty<string>();
         }
     }
 }

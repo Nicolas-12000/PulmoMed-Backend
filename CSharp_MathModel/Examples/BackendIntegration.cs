@@ -25,10 +25,10 @@ namespace LungCancerVR.Examples
             
             // 1. Crear simulación local
             var patient = new PatientProfile(
-                edad: 58,
-                esFumador: true,
+                age: 58,
+                isSmoker: true,
                 packYears: 25,
-                dieta: DietType.Normal
+                diet: DietType.Normal
             );
             
             var model = new TumorGrowthModel(patient);
@@ -52,8 +52,8 @@ namespace LungCancerVR.Examples
             
             // 3. Crear SimulationState para enviar al backend
             var simulationState = SimulationState.FromModel(model, patient);
-            simulationState.TratamientoActivo = "quimio";
-            simulationState.Modo = "libre";
+            simulationState.ActiveTreatment = "quimio";
+            simulationState.Mode = "libre";
             
             Console.WriteLine("Estado de simulación:");
             Console.WriteLine(JsonSerializer.Serialize(simulationState, new JsonSerializerOptions 
@@ -72,22 +72,22 @@ namespace LungCancerVR.Examples
                 if (response != null)
                 {
                     Console.WriteLine("=== RESPUESTA DEL PROFESOR IA ===");
-                    Console.WriteLine($"\nExplicación:\n{response.Explicacion}\n");
-                    Console.WriteLine($"Recomendación:\n{response.Recomendacion}\n");
+                    Console.WriteLine($"\nExplicación:\n{response.Explanation}\n");
+                    Console.WriteLine($"Recomendación:\n{response.Recommendation}\n");
                     
-                    if (response.Fuentes != null && response.Fuentes.Length > 0)
+                    if (response.Sources != null && response.Sources.Length > 0)
                     {
                         Console.WriteLine("Fuentes consultadas:");
-                        foreach (var fuente in response.Fuentes)
+                        foreach (var fuente in response.Sources)
                         {
                             Console.WriteLine($"  - {fuente}");
                         }
                         Console.WriteLine();
                     }
                     
-                    if (!string.IsNullOrEmpty(response.Advertencia))
+                    if (!string.IsNullOrEmpty(response.Warning))
                     {
-                        Console.WriteLine($"⚠️ Advertencia: {response.Advertencia}\n");
+                        Console.WriteLine($"⚠️ Advertencia: {response.Warning}\n");
                     }
                     
                     Console.WriteLine($"Chunks RAG: {response.RetrievedChunks}");

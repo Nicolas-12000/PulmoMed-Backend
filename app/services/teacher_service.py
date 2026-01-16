@@ -282,29 +282,29 @@ class AITeacherService:
         - Advertencia educativa
         """
         # Extraer secciones (si el LLM las formateó correctamente)
-        explicacion = ""
-        recomendacion = ""
+        explanation = ""
+        recommendation = ""
 
         if "**Explicación:**" in llm_response:
             parts = llm_response.split("**Recomendación Educativa:**")
-            explicacion = (
+            explanation = (
                 parts[0]
                 .replace("**Explicación:**", "")
                 .replace("**Explicación del Estado Actual:**", "")
                 .strip()
             )
             if len(parts) > 1:
-                recomendacion_parts = parts[1].split("**Disclaimer:**")
-                recomendacion = recomendacion_parts[0].strip()
+                recommendation_parts = parts[1].split("**Disclaimer:**")
+                recommendation = recommendation_parts[0].strip()
         else:
             # Fallback: toda la respuesta es explicación
-            explicacion = llm_response.strip()
-            recomendacion = (
+            explanation = llm_response.strip()
+            recommendation = (
                 "Consultar guías NCCN actualizadas para recomendaciones específicas."
             )
 
         # Extraer fuentes de los chunks
-        fuentes = list(
+        sources = list(
             set(
                 [
                     chunk.get("metadata", {}).get(
@@ -316,7 +316,7 @@ class AITeacherService:
         )
 
         # Advertencia educativa (siempre incluida)
-        advertencia = (
+        warning = (
             "⚠️ ADVERTENCIA EDUCATIVA: Este es un simulador con fines de "
             "enseñanza. Las decisiones clínicas reales requieren evaluación "
             "completa, biopsia, estadificación TNM, análisis molecular, y "
@@ -331,10 +331,10 @@ class AITeacherService:
 
         # Mapear campos parseados a TeacherResponse
         return TeacherResponse(
-            explanation=explicacion or "Análisis en progreso",
-            recommendation=recomendacion or "Consultar directrices clínicas",
-            sources=fuentes,
-            warning=advertencia,
+            explanation=explanation or "Análisis en progreso",
+            recommendation=recommendation or "Consultar directrices clínicas",
+            sources=sources,
+            warning=warning,
             retrieved_chunks=len(chunks),
             llm_model=llm_model,
         )

@@ -19,10 +19,10 @@ namespace LungCancerVR.Tests
         {
             var patient = new PatientProfile(60, false, 0, DietType.Normal);
             
-            Assert.AreEqual(60, patient.Edad);
-            Assert.IsFalse(patient.EsFumador);
+            Assert.AreEqual(60, patient.Age);
+            Assert.IsFalse(patient.IsSmoker);
             Assert.AreEqual(0, patient.PackYears);
-            Assert.AreEqual(DietType.Normal, patient.Dieta);
+            Assert.AreEqual(DietType.Normal, patient.Diet);
         }
         
         [Test]
@@ -122,9 +122,9 @@ namespace LungCancerVR.Tests
         }
         
         [Test]
-        public void PatientProfile_GetDietModifier_Saludable()
+        public void PatientProfile_GetDietModifier_Healthy()
         {
-            var patient = new PatientProfile(60, false, 0, DietType.Saludable);
+            var patient = new PatientProfile(60, false, 0, DietType.Healthy);
             
             float modifier = patient.GetDietModifier();
             
@@ -142,9 +142,9 @@ namespace LungCancerVR.Tests
         }
         
         [Test]
-        public void PatientProfile_GetDietModifier_Mala()
+        public void PatientProfile_GetDietModifier_Poor()
         {
-            var patient = new PatientProfile(60, false, 0, DietType.Mala);
+            var patient = new PatientProfile(60, false, 0, DietType.Poor);
             
             float modifier = patient.GetDietModifier();
             
@@ -215,7 +215,7 @@ namespace LungCancerVR.Tests
         [Test]
         public void PatientProfile_GetCombinedModifier_MultipliesAll()
         {
-            var patient = new PatientProfile(70, true, 40, DietType.Mala);
+            var patient = new PatientProfile(70, true, 40, DietType.Poor);
             
             float ageModifier = patient.GetAgeGrowthModifier(); // ~1.1
             float smokingModifier = patient.GetSmokingCapacityModifier(); // ~0.88
@@ -231,7 +231,7 @@ namespace LungCancerVR.Tests
         [Test]
         public void PatientProfile_ToString_ContainsInfo()
         {
-            var patient = new PatientProfile(65, true, 30, DietType.Saludable);
+            var patient = new PatientProfile(65, true, 30, DietType.Healthy);
             
             string str = patient.ToString();
             

@@ -18,10 +18,10 @@ namespace LungCancerVR.Examples
             
             // 1. Crear paciente y modelo
             var patient = new PatientProfile(
-                edad: 58,
-                esFumador: true,
+                age: 58,
+                isSmoker: true,
                 packYears: 30,
-                dieta: DietType.Normal
+                diet: DietType.Normal
             );
             
             var model = new TumorGrowthModel(patient);

@@ -25,10 +25,10 @@ namespace LungCancerVR.Tests
             
             // 1. Paciente detectado en estadio temprano
             var patient = new PatientProfile(
-                edad: 62,
-                esFumador: true,
+                age: 62,
+                isSmoker: true,
                 packYears: 35,
-                dieta: DietType.Mala
+                diet: DietType.Poor
             );
             
             Assert.IsTrue(patient.Validate(), "Perfil de paciente debe ser válido");
@@ -112,7 +112,7 @@ namespace LungCancerVR.Tests
         {
             // Verificar serialización completa para backend
             
-            var patient = new PatientProfile(65, true, 40, DietType.Saludable);
+            var patient = new PatientProfile(65, true, 40, DietType.Healthy);
             var model = new TumorGrowthModel(patient);
             model.SetInitialConditions(15.0f, 3.0f);
             model.SetTreatment(TreatmentType.Radiotherapy);
@@ -125,8 +125,8 @@ namespace LungCancerVR.Tests
             
             // Crear SimulationState
             var state = SimulationState.FromModel(model, patient);
-            state.TratamientoActivo = "radio";
-            state.Modo = "libre";
+            state.ActiveTreatment = "radio";
+            state.Mode = "libre";
             
             // Serializar a JSON
             var json = JsonSerializer.Serialize(state, new JsonSerializerOptions
@@ -142,9 +142,9 @@ namespace LungCancerVR.Tests
             var deserialized = JsonSerializer.Deserialize<SimulationState>(json);
             
             Assert.IsNotNull(deserialized);
-            Assert.AreEqual(state.Edad, deserialized.Edad);
-            Assert.AreEqual(state.VolumenTumorSensible, deserialized.VolumenTumorSensible, 0.01f);
-            Assert.AreEqual(state.VolumenTumorResistente, deserialized.VolumenTumorResistente, 0.01f);
+            Assert.AreEqual(state.Age, deserialized.Age);
+            Assert.AreEqual(state.SensitiveTumorVolume, deserialized.SensitiveTumorVolume, 0.01f);
+            Assert.AreEqual(state.ResistantTumorVolume, deserialized.ResistantTumorVolume, 0.01f);
         }
         
         [Test]
@@ -153,7 +153,7 @@ namespace LungCancerVR.Tests
             // Comparar evolución de 3 perfiles diferentes
             
             // Paciente 1: Joven, no fumador, sano
-            var patient1 = new PatientProfile(45, false, 0, DietType.Saludable);
+            var patient1 = new PatientProfile(45, false, 0, DietType.Healthy);
             var model1 = new TumorGrowthModel(patient1);
             model1.SetInitialConditions(10.0f, 1.0f);
             
@@ -163,7 +163,7 @@ namespace LungCancerVR.Tests
             model2.SetInitialConditions(10.0f, 1.0f);
             
             // Paciente 3: Mayor, fumador pesado, mala dieta
-            var patient3 = new PatientProfile(75, true, 50, DietType.Mala);
+            var patient3 = new PatientProfile(75, true, 50, DietType.Poor);
             var model3 = new TumorGrowthModel(patient3);
             model3.SetInitialConditions(10.0f, 1.0f);
             
@@ -269,10 +269,10 @@ namespace LungCancerVR.Tests
             // Caso: Estadio IIIA, fumador activo, 60 años
             
             var patient = new PatientProfile(
-                edad: 60,
-                esFumador: true,
+                age: 60,
+                isSmoker: true,
                 packYears: 45,
-                dieta: DietType.Mala
+                diet: DietType.Poor
             );
             
             var model = new TumorGrowthModel(patient);

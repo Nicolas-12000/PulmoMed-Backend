@@ -20,33 +20,33 @@ namespace LungCancerVR.MathModel
     public class PatientProfile
     {
         // Datos demográficos
-        public int Edad { get; set; }
-        public bool EsFumador { get; set; }
+        public int Age { get; set; }
+        public bool IsSmoker { get; set; }
         public float PackYears { get; set; }  // Paquetes-año acumulados
         
         // Factores de estilo de vida
-        public DietType Dieta { get; set; }
+        public DietType Diet { get; set; }
         
         // Predisposición genética (0.8 = baja, 1.0 = normal, 1.2 = alta)
-        public float FactorGenetico { get; set; } = 1.0f;
+        public float GeneticFactor { get; set; } = 1.0f;
         
         // Constructores
         public PatientProfile()
         {
-            Edad = 60;
-            EsFumador = false;
+            Age = 60;
+            IsSmoker = false;
             PackYears = 0.0f;
-            Dieta = DietType.Normal;
-            FactorGenetico = 1.0f;
+            Diet = DietType.Normal;
+            GeneticFactor = 1.0f;
         }
         
-        public PatientProfile(int edad, bool esFumador, float packYears, DietType dieta, float factorGenetico = 1.0f)
+        public PatientProfile(int age, bool isSmoker, float packYears, DietType diet, float geneticFactor = 1.0f)
         {
-            Edad = edad;
-            EsFumador = esFumador;
+            Age = age;
+            IsSmoker = isSmoker;
             PackYears = packYears;
-            Dieta = dieta;
-            FactorGenetico = factorGenetico;
+            Diet = diet;
+            GeneticFactor = geneticFactor;
         }
         
         /// <summary>
@@ -56,7 +56,7 @@ namespace LungCancerVR.MathModel
         /// </summary>
         public float GetAgeGrowthModifier()
         {
-            return 1.0f + 0.005f * (Edad - 50);
+            return 1.0f + 0.005f * (Age - 50);
         }
         
         /// <summary>
@@ -66,7 +66,7 @@ namespace LungCancerVR.MathModel
         /// </summary>
         public float GetSmokingCapacityModifier()
         {
-            if (!EsFumador && PackYears == 0)
+            if (!IsSmoker && PackYears == 0)
                 return 1.0f;
             
             float modifier = 1.0f - 0.003f * PackYears;
@@ -79,11 +79,11 @@ namespace LungCancerVR.MathModel
         /// </summary>
         public float GetDietModifier()
         {
-            return Dieta switch
+            return Diet switch
             {
-                DietType.Saludable => 0.90f,  // -10% progresión
+                DietType.Healthy => 0.90f,  // -10% progresión
                 DietType.Normal => 1.0f,
-                DietType.Mala => 1.10f,        // +10% progresión
+                DietType.Poor => 1.10f,        // +10% progresión
                 _ => 1.0f
             };
         }
@@ -97,7 +97,7 @@ namespace LungCancerVR.MathModel
             return GetAgeGrowthModifier() * 
                    GetSmokingCapacityModifier() * 
                    GetDietModifier() * 
-                   FactorGenetico;
+                   GeneticFactor;
         }
         
         /// <summary>
@@ -105,7 +105,7 @@ namespace LungCancerVR.MathModel
         /// </summary>
         public bool IsValid(out string errorMessage)
         {
-            if (Edad < 18 || Edad > 120)
+            if (Age < 18 || Age > 120)
             {
                 errorMessage = "Edad debe estar entre 18 y 120 años";
                 return false;
@@ -117,13 +117,13 @@ namespace LungCancerVR.MathModel
                 return false;
             }
             
-            if (!EsFumador && PackYears > 0)
+            if (!IsSmoker && PackYears > 0)
             {
                 errorMessage = "Pack-years debe ser 0 si no es fumador";
                 return false;
             }
             
-            if (FactorGenetico < 0.5f || FactorGenetico > 2.0f)
+            if (GeneticFactor < 0.5f || GeneticFactor > 2.0f)
             {
                 errorMessage = "Factor genético debe estar entre 0.5 y 2.0";
                 return false;
@@ -133,11 +133,19 @@ namespace LungCancerVR.MathModel
             return true;
         }
         
+        /// <summary>
+        /// Valida el perfil (wrapper para IsValid)
+        /// </summary>
+        public bool Validate()
+        {
+            return IsValid(out _);
+        }
+        
         public override string ToString()
         {
-            return $"Paciente: {Edad} años, Fumador: {EsFumador}, " +
-                   $"Pack-years: {PackYears:F1}, Dieta: {Dieta}, " +
-                   $"Factor genético: {FactorGenetico:F2}";
+            return $"Paciente: {Age} años, Fumador: {IsSmoker}, " +
+                   $"Pack-years: {PackYears:F1}, Dieta: {Diet}, " +
+                   $"Factor genético: {GeneticFactor:F2}";
         }
     }
     
@@ -146,8 +154,8 @@ namespace LungCancerVR.MathModel
     /// </summary>
     public enum DietType
     {
-        Saludable,  // Rica en frutas, verduras, baja en procesados
-        Normal,     // Dieta promedio
-        Mala        // Alta en procesados, baja en nutrientes
+        Healthy,   // Rica en frutas, verduras, baja en procesados
+        Normal,    // Dieta promedio
+        Poor       // Alta en procesados, baja en nutrientes
     }
 }

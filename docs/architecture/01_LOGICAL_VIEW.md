@@ -224,11 +224,11 @@ get_repository() → MedicalKnowledgeRepository
 ┌─────────────────────────────────────────┐
 │          PatientProfile                 │
 ├─────────────────────────────────────────┤
-│ - Edad: int                             │
-│ - EsFumador: bool                       │
+│ - Age: int                              │
+│ - IsSmoker: bool                        │
 │ - PackYears: float                      │
-│ - Dieta: DietType                       │
-│ - FactorGenetico: float                 │
+│ - Diet: DietType                        │
+│ - GeneticFactor: float                  │
 ├─────────────────────────────────────────┤
 │ + GetAgeGrowthModifier(): float         │
 │ + GetSmokingCapacityModifier(): float   │

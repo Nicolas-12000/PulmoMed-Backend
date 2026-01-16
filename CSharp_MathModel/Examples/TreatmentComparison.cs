@@ -19,10 +19,10 @@ namespace LungCancerVR.Examples
             
             // Paciente con tumor avanzado
             var patient = new PatientProfile(
-                edad: 62,
-                esFumador: true,
+                age: 62,
+                isSmoker: true,
                 packYears: 40,
-                dieta: DietType.Mala
+                diet: DietType.Poor
             );
             
             Console.WriteLine($"Paciente: {patient}\n");

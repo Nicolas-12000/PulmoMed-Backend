@@ -267,7 +267,7 @@ El DTO `SimulationState` es compatible con el modelo Pydantic de Python:
 **C# → Python:**
 ```csharp
 var state = SimulationState.FromModel(model, patient);
-state.TratamientoActivo = "quimio";
+state.ActiveTreatment = "quimio";
 
 string json = JsonSerializer.Serialize(state);
 // Enviar a http://localhost:8000/api/profesor/consultar

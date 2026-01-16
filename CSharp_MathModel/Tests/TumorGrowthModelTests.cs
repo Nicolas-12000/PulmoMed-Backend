@@ -21,10 +21,10 @@ namespace LungCancerVR.Tests
         public void Setup()
         {
             defaultPatient = new PatientProfile(
-                edad: 60,
-                esFumador: false,
+                age: 60,
+                isSmoker: false,
                 packYears: 0,
-                dieta: DietType.Normal
+                diet: DietType.Normal
             );
         }
         
@@ -201,12 +201,12 @@ namespace LungCancerVR.Tests
         public void TumorGrowthModel_PatientFactorsAffectGrowth()
         {
             // Paciente joven sano
-            var youngPatient = new PatientProfile(40, false, 0, DietType.Saludable);
+            var youngPatient = new PatientProfile(40, false, 0, DietType.Healthy);
             var youngModel = new TumorGrowthModel(youngPatient);
             youngModel.SetInitialConditions(10.0f, 1.0f);
             
             // Paciente mayor fumador
-            var oldPatient = new PatientProfile(75, true, 40, DietType.Mala);
+            var oldPatient = new PatientProfile(75, true, 40, DietType.Poor);
             var oldModel = new TumorGrowthModel(oldPatient);
             oldModel.SetInitialConditions(10.0f, 1.0f);
             
