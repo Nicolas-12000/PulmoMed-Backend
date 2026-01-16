@@ -1,15 +1,12 @@
 """
 FastAPI Application Entry Point
 Main entry para el backend LungCancerVR
-
 OPTIMIZACIONES:
 - Singleton para TeacherService (evita recargar embeddings)
 - Lifecycle management para HTTP clients
 - Logging estructurado para monitoreo
 """
-
 import logging
-
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,10 +33,11 @@ def get_teacher_service():
     if _teacher_service is None:
         from app.services.teacher_service import AITeacherService
         from app.repositories.medical_knowledge_repo import get_repository
-        
+
         repo = get_repository()
         _teacher_service = AITeacherService(repository=repo)
     return _teacher_service
+
 
 app = FastAPI(
     title=settings.api_title,
@@ -108,7 +106,7 @@ async def lifespan(app: FastAPI):
         logger.warning(
             "⚠️  Base de conocimiento vacía. Ejecutar script de indexación de PDFs."
         )
-    
+
     # Pre-inicializar el servicio singleton
     service = get_teacher_service()
     logger.info(f"🤖 LLM disponible: {service.llm_client.check_availability()}")

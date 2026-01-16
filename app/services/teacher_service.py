@@ -1,27 +1,22 @@
 """
 AI Teacher Service - Service Layer
 Orquesta RAG + LLM para generar feedback educativo (SOLID: SRP + DIP)
-
 OPTIMIZACIONES:
 - Caché LRU de respuestas por estado similar (5 min TTL)
 - Método async para no bloquear event loop
 - Singleton pattern para reutilizar recursos
 """
-
 import hashlib
 import logging
 import time
 from typing import List, Dict, Any, Optional, Tuple
-
 from app.core.config import get_settings
 from app.llm.interface import LLMClient
 from app.llm.ollama_client import OllamaClient
 from app.models.simulation_state import SimulationState, TeacherResponse
 from app.rag.prompts import PromptTemplates
 from app.repositories.medical_knowledge_repo import get_repository
-
 logger = logging.getLogger(__name__)
-
 # Constantes de caché
 CACHE_TTL_SECONDS = 300  # 5 minutos
 MAX_CACHE_SIZE = 100  # Máximo 100 respuestas cacheadas
@@ -32,7 +27,6 @@ class AITeacherService:
     Servicio de IA educativa (Service Layer Pattern)
     Coordina: Retrieval (RAG) → Prompt Building → LLM Query → Response
     """
-
     def __init__(
         self,
         repository=None,  # Dependency Injection
@@ -42,13 +36,13 @@ class AITeacherService:
         self.repository = repository or get_repository()
         self.llm_client: LLMClient = llm_client or OllamaClient()
         self.prompt_templates = PromptTemplates()
-        
+
         # Caché de respuestas para evitar recomputar (optimización VR)
         self._response_cache: Dict[str, Tuple[TeacherResponse, float]] = {}
-    
+
     def _get_cache_key(self, state: SimulationState) -> str:
         """Genera key de caché basada en estado clínicamente relevante.
-        
+
         Solo cachea por parámetros que realmente afectan la respuesta:
         - Estadio aproximado
         - Tratamiento activo
@@ -57,10 +51,10 @@ class AITeacherService:
         """
         has_resistance = state.resistant_tumor_volume > 0.1
         pack_years_bucket = int(state.pack_years / 10) * 10  # 0, 10, 20, 30...
-        
+
         key_data = f"{state.approx_stage}_{state.active_treatment}_{pack_years_bucket}_{has_resistance}"
         return hashlib.md5(key_data.encode()).hexdigest()[:16]
-    
+
     def _get_cached_response(self, cache_key: str) -> Optional[TeacherResponse]:
         """Retorna respuesta cacheada si existe y no ha expirado."""
         if cache_key in self._response_cache:
@@ -72,7 +66,7 @@ class AITeacherService:
                 # Expirado, eliminar
                 del self._response_cache[cache_key]
         return None
-    
+
     def _cache_response(self, cache_key: str, response: TeacherResponse) -> None:
         """Guarda respuesta en caché con timestamp."""
         # Limpiar caché si está lleno
@@ -80,7 +74,7 @@ class AITeacherService:
             # Eliminar entrada más antigua
             oldest_key = min(self._response_cache, key=lambda k: self._response_cache[k][1])
             del self._response_cache[oldest_key]
-        
+
         self._response_cache[cache_key] = (response, time.time())
         logger.debug(f"📦 Cache STORE para key {cache_key}")
 
@@ -148,7 +142,7 @@ class AITeacherService:
             f"Generando feedback para paciente: {state.age} años, "
             f"volumen: {state.total_volume:.2f} cm³"
         )
-        
+
         # OPTIMIZACIÓN: Verificar caché primero
         cache_key = self._get_cache_key(state)
         cached = self._get_cached_response(cache_key)
@@ -231,7 +225,7 @@ class AITeacherService:
         response = self._parse_llm_response(
             llm_response=llm_response, chunks=relevant_chunks, state=state
         )
-        
+
         # OPTIMIZACIÓN: Guardar en caché para queries similares
         self._cache_response(cache_key, response)
 

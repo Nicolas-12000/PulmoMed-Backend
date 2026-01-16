@@ -2,10 +2,8 @@
 LLM Client - Implementación unificada para Ollama y Mock
 Soporta modo mock (sin GPU) y Ollama real (con GPU)
 """
-
 import logging
 from typing import Optional
-
 import httpx
 
 from app.core.config import get_settings
@@ -17,12 +15,11 @@ logger = logging.getLogger(__name__)
 class OllamaClient(LLMClient):
     """
     Cliente unificado para LLM (SOLID: Single Responsibility)
-    
+
     Modos de operación:
     - Mock: Respuestas educativas predefinidas (sin GPU)
     - Ollama: LLM real local (requiere GPU y Ollama instalado)
     """
-
     # Respuestas mock categorizadas por contexto
     MOCK_RESPONSES = {
         "treatment": (
@@ -66,10 +63,9 @@ class OllamaClient(LLMClient):
             "**Nota:** Este simulador tiene fines educativos únicamente."
         ),
     }
-
     # Cliente HTTP compartido para connection pooling
     _shared_client: Optional[httpx.AsyncClient] = None
-    
+
     def __init__(self, force_mock: bool = False):
         """
         Args:
@@ -88,7 +84,7 @@ class OllamaClient(LLMClient):
                 limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
             )
         return cls._shared_client
-    
+
     @classmethod
     async def close_client(cls) -> None:
         """Cerrar cliente HTTP (llamar en shutdown)"""
@@ -101,10 +97,10 @@ class OllamaClient(LLMClient):
         """Verifica si Ollama está disponible (lazy check síncrono)"""
         if self._force_mock:
             return False
-        
+
         if self._ollama_available is None:
             self._ollama_available = self._check_ollama_connection_sync()
-        
+
         return self._ollama_available
 
     def _check_ollama_connection_sync(self) -> bool:
@@ -118,14 +114,14 @@ class OllamaClient(LLMClient):
                     return True
         except Exception as e:
             logger.debug(f"Ollama no disponible: {e}")
-        
+
         return False
 
     async def query(self, prompt: str) -> str:
         """
         Envía prompt al LLM y retorna respuesta (ASYNC).
         Usa mock si Ollama no está disponible o timeout.
-        
+
         Optimizado para VR:
         - Timeout de 15 segundos máximo
         - Fallback automático a mock
@@ -140,7 +136,7 @@ class OllamaClient(LLMClient):
         """Consulta async a Ollama con timeout agresivo"""
         try:
             client = self.get_http_client()
-            
+
             response = await client.post(
                 f"{self.settings.ollama_base_url}/api/generate",
                 json={
@@ -153,25 +149,24 @@ class OllamaClient(LLMClient):
                     }
                 },
             )
-            
+
             if response.status_code == 200:
                 return response.json().get("response", "")
-            
             logger.warning(f"Ollama HTTP {response.status_code}, usando mock")
             return self._mock_response(prompt)
-            
+
         except httpx.TimeoutException:
             logger.warning("⏱️ Ollama timeout (>15s), usando respuesta mock")
             return self._mock_response(prompt)
         except Exception as e:
             logger.error(f"Error Ollama: {e}")
             return self._mock_response(prompt)
-    
+
     def query_sync(self, prompt: str) -> str:
         """Versión síncrona para compatibilidad con tests"""
         if not self.is_available:
             return self._mock_response(prompt)
-        
+
         try:
             with httpx.Client(timeout=15.0) as client:
                 response = client.post(
@@ -190,19 +185,19 @@ class OllamaClient(LLMClient):
                     return response.json().get("response", "")
         except Exception as e:
             logger.error(f"Error Ollama sync: {e}")
-        
+
         return self._mock_response(prompt)
 
     def _mock_response(self, prompt: str) -> str:
         """Genera respuesta mock educativa basada en el contexto del prompt"""
         prompt_lower = prompt.lower()
-        
+
         if "tratamiento" in prompt_lower or "treatment" in prompt_lower:
             return self.MOCK_RESPONSES["treatment"]
-        
+
         if any(kw in prompt_lower for kw in ["progresión", "volumen", "progression"]):
             return self.MOCK_RESPONSES["progression"]
-        
+
         return self.MOCK_RESPONSES["default"]
 
     def check_availability(self) -> bool:
@@ -213,4 +208,5 @@ class OllamaClient(LLMClient):
         """Retorna el nombre del modelo en uso"""
         if self.is_available:
             return f"ollama-{self.settings.ollama_model}"
+
         return "ollama-mock"

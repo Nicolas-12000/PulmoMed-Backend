@@ -1,11 +1,10 @@
-"""
-API Endpoints - FastAPI Routes
+"""API Endpoints - FastAPI Routes
 Expone servicios vía REST API (SOLID: Interface Segregation)
 """
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from app.core.config import get_settings
 from app.models.simulation_state import (
@@ -14,7 +13,6 @@ from app.models.simulation_state import (
     TeacherResponse,
 )
 from app.repositories.medical_knowledge_repo import get_repository
-from app.services.teacher_service import AITeacherService
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +56,7 @@ async def consultar_profesor(
         # Importar singleton del main
         from main import get_teacher_service
         service = get_teacher_service()
-        
+
         logger.info(
             f"Consulta recibida - Paciente: {state.age} años, "
             f"Volumen: {state.total_volume:.2f} cm³"
@@ -137,7 +135,7 @@ async def list_library_cases() -> dict:
     try:
         with open(cases_path, "r", encoding="utf-8") as f:
             cases = json.load(f)
-        
+
         return {
             "count": len(cases),
             "cases": cases,
@@ -168,14 +166,14 @@ async def get_library_case(case_id: str) -> dict:
     try:
         with open(cases_path, "r", encoding="utf-8") as f:
             cases = json.load(f)
-        
+
         # Buscar el caso por ID
         for case in cases:
             if case.get("caso_id") == case_id:
                 return {"found": True, "case": case}
-        
+
         raise HTTPException(status_code=404, detail=f"Caso '{case_id}' no encontrado")
-    
+
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="Archivo de casos no encontrado")
     except json.JSONDecodeError:

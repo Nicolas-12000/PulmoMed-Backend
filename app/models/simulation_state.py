@@ -2,12 +2,9 @@
 Domain Models - LungCancerVR Backend
 Modelos Pydantic para validación y serialización (SOLID: SRP)
 """
-
 from __future__ import annotations
-
 from enum import Enum
 from typing import Literal
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -69,6 +66,7 @@ class SimulationState(BaseModel):
         """Validación: pack_years > 0 solo si is_smoker"""
         if not info.data.get("is_smoker", False) and v > 0:
             raise ValueError("pack_years debe ser 0 si no es fumador")
+
         return v
 
     @property
@@ -83,17 +81,17 @@ class SimulationState(BaseModel):
         """
         from app.core.config import get_settings
         settings = get_settings()
-        
+
         # Factor edad (18-100 -> 0..1)
         age_range = settings.max_patient_age - settings.min_patient_age
         age_factor = max(0.0, min(1.0, (self.age - settings.min_patient_age) / age_range))
-        
+
         # Factor tabaquismo (pack-years normalizado)
         pack_factor = min(1.0, self.pack_years / settings.max_pack_years)
-        
+
         # Factor volumen tumoral
         vol_factor = min(1.0, self.total_volume / settings.max_tumor_volume)
-        
+
         # Combinación ponderada
         return 0.4 * age_factor + 0.4 * pack_factor + 0.2 * vol_factor
 
@@ -147,7 +145,7 @@ class SimulationState(BaseModel):
         pack-years aproximado como: (cigarrillos_por_dia / 20) * (dias / 365)
         """
         from app.core.config import get_settings
-        
+
         if days <= 0:
             return
         self.days_since_smoking_change += days
@@ -164,7 +162,7 @@ class SimulationState(BaseModel):
         """
         from app.core.config import get_settings
         settings = get_settings()
-        
+
         vol = self.total_volume
         if vol < settings.stage_ia_max_volume:
             return "IA (T1a)"
