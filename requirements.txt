@@ -6,6 +6,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.2.0
 
 # Vector Database
 chromadb==0.4.22
@@ -25,6 +26,15 @@ python-multipart==0.0.6
 
 # HTTP Client (para Ollama)
 httpx==0.26.0
+
+# Database (PostgreSQL async)
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Authentication
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
 
 # Testing
 pytest==7.4.4

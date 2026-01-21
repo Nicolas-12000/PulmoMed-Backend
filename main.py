@@ -13,6 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.api.teacher_endpoint import router as teacher_router
+from app.api.auth_endpoint import router as auth_router
+from app.api.exam_endpoint import router as exam_router
+from app.api.stats_endpoint import router as stats_router
+from app.api.course_endpoint import router as course_router
 from app.core.config import get_settings
 
 # Configurar logging
@@ -82,6 +86,10 @@ app.add_middleware(
 
 # Registrar routers
 app.include_router(teacher_router)
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(course_router, prefix="/api/v1")  # Cursos antes de exams
+app.include_router(exam_router, prefix="/api/v1")
+app.include_router(stats_router, prefix="/api/v1")
 
 
 @asynccontextmanager
@@ -92,7 +100,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"📍 Host: {settings.api_host}:{settings.api_port}")
     logger.info(f"🧠 Embedding Model: {settings.embedding_model}")
     logger.info(f"💾 Vector DB: {settings.chroma_persist_dir}")
+    logger.info("🗄️  Database: PostgreSQL")
     logger.info("=" * 60)
+
+    # Inicializar base de datos
+    from app.core.database import init_db
+    try:
+        await init_db()
+        logger.info("✅ Base de datos inicializada")
+    except Exception as e:
+        logger.warning(f"⚠️  No se pudo conectar a PostgreSQL: {e}")
+        logger.warning("   Ejecutar: docker-compose up -d postgres")
 
     # Inicializar repository y servicio (SINGLETON - carga embeddings UNA vez)
     from app.repositories.medical_knowledge_repo import get_repository

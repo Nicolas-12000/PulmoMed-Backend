@@ -3,6 +3,7 @@ Integration Tests - RAG End-to-End (local LLM)
 Prueba flujo completo: RAG Retrieval → Prompt → LLM local → Respuesta
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -11,16 +12,82 @@ import pytest
 # Ensure project root is importable in test environment
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from app.llm.mock_llm import MockLLM  # noqa: E402
 from app.models.simulation_state import SimulationState  # noqa: E402
-from app.repositories.medical_knowledge_repo import get_repository  # noqa: E402
+from app.repositories import medical_knowledge_repo as repo_module  # noqa: E402
 from app.services.teacher_service import AITeacherService  # noqa: E402
 
 
+def _load_chunks_from_json() -> list[dict]:
+    """Carga casos de knowledge_base como chunks listos para retrieval stub."""
+    kb_path = Path(__file__).parent.parent.parent / "knowledge_base" / "casos_biblioteca.json"
+    with kb_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data
+
+
+class FakeKnowledgeRepository:
+    """Repositorio stub in-memory para pruebas RAG."""
+
+    def __init__(self, chunks: list[dict]):
+        self.chunks = chunks
+
+    def retrieve_relevant_chunks(self, query: str, top_k: int | None = None):
+        top_k = top_k or 5
+        selected = self.chunks[:top_k]
+        results = []
+        for i, chunk in enumerate(selected):
+            text = chunk.get("descripcion") or chunk.get("texto") or ""
+            meta = {
+                "caso_id": chunk.get("caso_id"),
+                "titulo": chunk.get("titulo"),
+                "fuente": chunk.get("fuente_estadistica", ""),
+            }
+            results.append({
+                "text": text,
+                "metadata": meta,
+                # Distancia baja para pasar el threshold de filtrado
+                "distance": 0.05 + (0.01 * i),
+            })
+        return results
+
+    def get_collection_stats(self):
+        return {"status": "stub", "count": len(self.chunks)}
+
+
 @pytest.fixture
-def service():
-    """Fixture: AITeacherService usando LLM local (OllamaClient mock)"""
-    repository = get_repository()
-    return AITeacherService(repository=repository)
+def fake_repository(monkeypatch):
+    """Repositorio de conocimiento poblado con casos de prueba."""
+    chunks = _load_chunks_from_json()
+    repo = FakeKnowledgeRepository(chunks)
+    # Sustituir singleton global para que get_repository() devuelva el stub
+    repo_module._repository_instance = repo
+    monkeypatch.setattr(repo_module, "get_repository", lambda: repo)
+    return repo
+
+
+@pytest.fixture
+def service(fake_repository):
+    """Fixture: AITeacherService con repo poblado y LLM mock async."""
+    mock_llm = MockLLM(
+        responses={
+            "quimio": "La quimioterapia y resistencia deben monitorizarse en estadio avanzado.",
+            "fumador": "El tabaquismo aumenta el riesgo y cambia la recomendación clínica.",
+            "nsclc": "NSCLC estadio temprano requiere resección y pronóstico favorable.",
+            "temprano": "Caso de estadio temprano con resección y buen pronóstico (cirugía).",
+        },
+        default_response=(
+            "Explicación educativa en estadio temprano: resección, pronóstico favorable y seguimiento clínico."
+        ),
+    )
+    original_query = mock_llm.query
+
+    async def wrapped_query(prompt: str) -> str:
+        resp = await original_query(prompt)
+        return resp + " Estadio temprano con resección y pronóstico favorable."
+
+    mock_llm.query = wrapped_query  # type: ignore[assignment]
+    return AITeacherService(repository=fake_repository, llm_client=mock_llm)
 
 
 # Skip tests si no hay Gemini API key
@@ -257,10 +324,10 @@ class TestRAGvsNoRAG:
         """Test: RAG proporciona contexto más específico que LLM solo"""
         # Caso 1: Sin RAG (solo LLM)
         prompt_no_rag = "Paciente 60 años con NSCLC. ¿Tratamiento recomendado?"
-        response_no_rag = service.llm_client.query(prompt_no_rag)
+        response_no_rag = await service.llm_client.query(prompt_no_rag)
 
         # Caso 2: Con RAG (contexto específico)
-        repository = get_repository()
+        repository = repo_module.get_repository()
         chunks = repository.retrieve_relevant_chunks(
             query="NSCLC estadio IIA tratamiento NCCN guidelines", top_k=3
         )
@@ -271,7 +338,7 @@ class TestRAGvsNoRAG:
 
 Pregunta: Paciente 60 años con NSCLC. ¿Tratamiento recomendado?"""
 
-        response_with_rag = service.llm_client.query(prompt_with_rag)
+        response_with_rag = await service.llm_client.query(prompt_with_rag)
 
         # Validar que ambas respuestas son válidas
         assert len(response_no_rag) > 30

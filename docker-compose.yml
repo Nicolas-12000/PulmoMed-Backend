@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulmomed-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pulmomed
+      POSTGRES_PASSWORD: pulmomed_secret
+      POSTGRES_DB: pulmomed_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulmomed -d pulmomed_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pulmomed-network
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: pulmomed-chromadb
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - pulmomed-network
+
+  # Ollama LLM Server (optional - requires GPU)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pulmomed-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - pulmomed-network
+
+  # FastAPI Backend (optional - for full docker deployment)
+  # backend:
+  #   build: .
+  #   container_name: pulmomed-backend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://pulmomed:pulmomed_secret@postgres:5432/pulmomed_db
+  #     - CHROMA_HOST=chromadb
+  #     - CHROMA_PORT=8000
+  #     - OLLAMA_BASE_URL=http://ollama:11434
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     chromadb:
+  #       condition: service_started
+  #   volumes:
+  #     - ./knowledge_base:/app/knowledge_base:ro
+  #   networks:
+  #     - pulmomed-network
+
+networks:
+  pulmomed-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  chroma_data:
+  ollama_models:

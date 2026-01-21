@@ -1,326 +1,346 @@
-# Vista Lógica - Modelo 4+1
+# Vista Lógica - Modelo 4+1 de Kruchten
 
-## Descripción General
-
-La Vista Lógica describe la estructura estática del sistema mediante clases, interfaces y sus relaciones. PulmoMed es un sistema educativo de simulación de cáncer de pulmón con dos componentes principales: un **Backend Python** (IA + RAG) y un **Cliente Unity** (VR + Modelo Matemático).
-
----
-
-## Diagrama de Clases Principal
-
-### Instrucciones para el diagrama
-
-Crear un **diagrama de clases UML** con los siguientes elementos:
+> **Propósito**: Describir la funcionalidad del sistema desde la perspectiva del usuario final, mostrando la estructura estática mediante clases, interfaces y sus relaciones.
+>
+> **Audiencia**: Usuarios finales, Diseñadores de sistemas, Arquitectos de software.
+>
+> **Diagramas UML**: Diagrama de Clases, Diagrama de Estados.
 
 ---
 
-### Paquete: `app.models` (Domain Models)
+## 1. Introducción
 
-```
-┌─────────────────────────────────────────┐
-│           SimulationState               │
-├─────────────────────────────────────────┤
-│ - age: int                              │
-│ - is_smoker: bool                       │
-│ - pack_years: float                     │
-│ - diet: Literal["saludable","normal","mala"] │
-│ - sensitive_tumor_volume: float         │
-│ - resistant_tumor_volume: float         │
-│ - active_treatment: Literal[...]        │
-│ - treatment_days: int                   │
-│ - mode: Literal["libre","biblioteca"]   │
-│ - case_id: str | None                   │
-├─────────────────────────────────────────┤
-│ + total_volume: float <<property>>      │
-│ + approx_stage: str <<property>>        │
-│ + compute_risk_score(): float           │
-│ + update_lung_state(): LungState        │
-└─────────────────────────────────────────┘
+La Vista Lógica descompone el sistema en abstracciones clave que representan los conceptos del dominio. En PulmoMed, el dominio se divide en dos subsistemas complementarios:
 
-┌─────────────────────────────────────────┐
-│           TeacherResponse               │
-├─────────────────────────────────────────┤
-│ - explanation: str                      │
-│ - recommendation: str                   │
-│ - sources: list[str]                    │
-│ - warning: str | None                   │
-│ - retrieved_chunks: int                 │
-│ - llm_model: str                        │
-└─────────────────────────────────────────┘
+| Subsistema | Responsabilidad | Tecnología |
+|------------|-----------------|------------|
+| **Backend Python** | Asistente educativo con RAG + LLM | FastAPI, ChromaDB, Ollama |
+| **Cliente Unity C#** | Simulación matemática y visualización VR | Unity, C# MathModel |
 
-┌─────────────────────────────────────────┐
-│            LibraryCase                  │
-├─────────────────────────────────────────┤
-│ - case_id: str                          │
-│ - title: str                            │
-│ - description: str                      │
-│ - age: int                              │
-│ - is_smoker: bool                       │
-│ - pack_years: float                     │
-│ - diet: str                             │
-│ - initial_sensitive_volume: float       │
-│ - initial_resistant_volume: float       │
-│ - learning_objectives: list[str]        │
-│ - statistical_source: str               │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│             LungState                   │
-├─────────────────────────────────────────┤
-│ <<enumeration>>                         │
-│ SANO                                    │
-│ EN_RIESGO                               │
-│ ESTABLE                                 │
-│ PROGRESANDO                             │
-│ CRITICO                                 │
-│ TERMINAL                                │
-└─────────────────────────────────────────┘
-```
-
-**Relaciones:**
-- `SimulationState` **usa** `LungState` (composición)
-- `LibraryCase` puede **generar** `SimulationState` (dependencia)
+Esta vista responde a la pregunta: *"¿Qué hace el sistema y cómo está estructurado lógicamente?"*
 
 ---
 
-### Paquete: `app.services` (Business Logic)
+## 2. Diagrama de Clases - Backend Python
 
 ```
-┌─────────────────────────────────────────┐
-│          AITeacherService               │
-├─────────────────────────────────────────┤
-│ - settings: Settings                    │
-│ - repository: MedicalKnowledgeRepository│
-│ - llm_client: LLMClient                 │
-│ - prompt_templates: PromptTemplates     │
-├─────────────────────────────────────────┤
-│ + get_educational_feedback(state): TeacherResponse │
-│ - _build_search_query(state): str       │
-│ - _filter_and_rerank_chunks(): list     │
-│ - _parse_llm_response(): TeacherResponse│
-│ - _is_malicious(text): bool             │
-└─────────────────────────────────────────┘
-```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    DIAGRAMA DE CLASES UML                                        │
+│                                    Subsistema: Backend Python                                    │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-**Relaciones:**
-- `AITeacherService` **depende de** `MedicalKnowledgeRepository` (inyección)
-- `AITeacherService` **depende de** `LLMClient` (inyección)
-- `AITeacherService` **usa** `PromptTemplates` (composición)
-- `AITeacherService` **recibe** `SimulationState` y **retorna** `TeacherResponse`
+    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗
+    ║                                   <<package>> app.models                                     ║
+    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝
 
----
+    ┌────────────────────────────────────┐
+    │    <<enumeration>> LungState       │
+    ├────────────────────────────────────┤
+    │  SANO                              │
+    │  EN_RIESGO                         │
+    │  ESTABLE                           │
+    │  PROGRESANDO                       │
+    │  CRITICO                           │
+    │  TERMINAL                          │
+    └─────────────────┬──────────────────┘
+                      │ <<uses>>
+                      ▼
+    ┌────────────────────────────────────────────────────────────────────────────────────────┐
+    │                                   SimulationState                                       │
+    │                                   <<entity>>                                            │
+    ├────────────────────────────────────────────────────────────────────────────────────────┤
+    │  - age: int {18..100}                                                                  │
+    │  - is_smoker: bool                                                                     │
+    │  - pack_years: float {0..150}                                                          │
+    │  - days_since_smoking_change: int                                                      │
+    │  - lung_state: LungState [0..1]                                                        │
+    │  - diet: Literal["saludable", "normal", "mala"]                                        │
+    │  - sensitive_tumor_volume: float {≥0}                                                  │
+    │  - resistant_tumor_volume: float {≥0}                                                  │
+    │  - active_treatment: Literal["ninguno", "quimio", "radio", "inmuno"]                   │
+    │  - treatment_days: int {≥0}                                                            │
+    │  - mode: Literal["libre", "biblioteca"]                                                │
+    │  - case_id: str [0..1]                                                                 │
+    ├────────────────────────────────────────────────────────────────────────────────────────┤
+    │  «derived» + total_volume: float                                                       │
+    │  «derived» + approx_stage: str                                                         │
+    │  + compute_risk_score(): float                                                         │
+    │  + update_lung_state(): LungState                                                      │
+    └────────────────────────────────────────────────────────────────────────────────────────┘
+              │ <<creates>>                           │ <<creates>>
+              ▼                                       ▼
+    ┌────────────────────────────────────┐    ┌────────────────────────────────────┐
+    │         TeacherResponse            │    │       HealthCheckResponse          │
+    │         <<value object>>           │    │       <<value object>>             │
+    ├────────────────────────────────────┤    ├────────────────────────────────────┤
+    │  - explanation: str                │    │  - status: str                     │
+    │  - recommendation: str             │    │  - llm_available: bool             │
+    │  - sources: List[str]              │    │  - chroma_available: bool          │
+    │  - warning: str [0..1]             │    │  - model_loaded: bool              │
+    │  - retrieved_chunks: int           │    │  - knowledge_docs: int             │
+    │  - llm_model: str                  │    └────────────────────────────────────┘
+    │  - processing_time_ms: int         │
+    └────────────────────────────────────┘
 
-### Paquete: `app.repositories` (Data Access)
+    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗
+    ║                                   <<package>> app.services                                   ║
+    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝
 
-```
-┌─────────────────────────────────────────┐
-│      MedicalKnowledgeRepository         │
-├─────────────────────────────────────────┤
-│ - settings: Settings                    │
-│ - _client: ChromaDB.PersistentClient    │
-│ - _collection: Collection               │
-│ - _embedding_model: SentenceTransformer │
-├─────────────────────────────────────────┤
-│ + initialize(): void                    │
-│ + retrieve_relevant_chunks(query, top_k): list[dict] │
-│ + add_documents(texts, metadatas): void │
-│ + get_collection_stats(): dict          │
-│ + close(): void                         │
-└─────────────────────────────────────────┘
-
-<<singleton>>
-get_repository() → MedicalKnowledgeRepository
-```
-
-**Relaciones:**
-- `MedicalKnowledgeRepository` **usa** `ChromaDB` (agregación externa)
-- `MedicalKnowledgeRepository` **usa** `SentenceTransformer` (BGE-M3)
-
----
-
-### Paquete: `app.llm` (LLM Abstraction)
-
-```
-┌─────────────────────────────────────────┐
-│         <<interface>>                   │
-│           LLMClient                     │
-├─────────────────────────────────────────┤
-│ + query(prompt: str): str               │
-│ + check_availability(): bool            │
-└─────────────────────────────────────────┘
-            △
-            │ implementa
-    ┌───────┴───────┐
-    │               │
-┌───┴───┐     ┌─────┴─────┐
-│OllamaClient│  │  MockLLM  │
-├───────────┤  ├───────────┤
-│-settings  │  │-responses │
-│-_force_mock│ │-call_count│
-├───────────┤  ├───────────┤
-│+query()   │  │+query()   │
-│+check_availability()│    │
-│-_mock_response()│        │
-│-_ollama_query() │        │
-└───────────┘  └───────────┘
-```
-
-**Relaciones:**
-- `OllamaClient` y `MockLLM` **implementan** `LLMClient` (Protocol)
-- `OllamaClient` puede usar **Ollama Server** via HTTP o fallback a mock
-
----
-
-### Paquete: `app.rag` (RAG Components)
-
-```
-┌─────────────────────────────────────────┐
-│          PromptTemplates                │
-├─────────────────────────────────────────┤
-│ + SYSTEM_PROMPT: str <<class>>          │
-│ + TEACHER_QUERY_TEMPLATE: str <<class>> │
-│ + PROGRESSION_ANALYSIS_TEMPLATE: str    │
-│ + TREATMENT_RESPONSE_TEMPLATE: str      │
-├─────────────────────────────────────────┤
-│ + format_context(chunks): str <<static>>│
-│ + build_teacher_prompt(state, chunks): str │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│          MedicalPDFLoader               │
-├─────────────────────────────────────────┤
-│ - settings: Settings                    │
-│ - repository: MedicalKnowledgeRepository│
-├─────────────────────────────────────────┤
-│ + load_pdf(path): list[dict]            │
-│ + load_directory(path): list[dict]      │
-│ + index_chunks(chunks): void            │
-└─────────────────────────────────────────┘
+    ┌────────────────────────────────────────────────────────────────────────────────────────┐
+    │                                   AITeacherService                                      │
+    │                                   <<service>>                                           │
+    ├────────────────────────────────────────────────────────────────────────────────────────┤
+    │  - settings: Settings                                                                  │
+    │  - repository: MedicalKnowledgeRepository                                              │
+    │  - llm_client: LLMClient                                                               │
+    │  - prompt_templates: PromptTemplates                                                   │
+    │  - _response_cache: Dict[str, Tuple[TeacherResponse, float]]                           │
+    ├────────────────────────────────────────────────────────────────────────────────────────┤
+    │  «async» + get_educational_feedback(state: SimulationState): TeacherResponse           │
+    │  - _build_search_query(state: SimulationState): str                                    │
+    │  - _filter_and_rerank_chunks(query: str, chunks: List): List                           │
+    │  - _is_malicious(text: str): bool                                                      │
+    │  - _get_cache_key(state: SimulationState): str                                         │
+    │  - _get_cached_response(key: str): TeacherResponse [0..1]                              │
+    │  - _cache_response(key: str, response: TeacherResponse): void                          │
+    └─────────────────────┬─────────────────────────────────────────┬────────────────────────┘
+                          │ <<dependency>>                          │ <<dependency>>
+                          ▼                                         ▼
+    ┌────────────────────────────────────┐          ┌────────────────────────────────────┐
+    │     MedicalKnowledgeRepository     │          │     <<interface>> LLMClient        │
+    │     <<repository>>                 │          ├────────────────────────────────────┤
+    ├────────────────────────────────────┤          │ «async» + query(prompt: str): str  │
+    │  - _client: chromadb.Client        │          │  + check_availability(): bool      │
+    │  - _collection: Collection         │          └─────────────────┬──────────────────┘
+    │  - _embedding_model: SentenceTransf│                            │ <<realizes>>
+    ├────────────────────────────────────┤                  ┌─────────┴─────────┐
+    │  + initialize(): void              │                  ▼                   ▼
+    │  + retrieve_relevant_chunks(): List│    ┌──────────────────────┐ ┌──────────────────────┐
+    │  + add_documents(): void           │    │    OllamaClient      │ │      MockLLM         │
+    │  + get_collection_stats(): dict    │    │    <<adapter>>       │ │    <<test double>>   │
+    │  + close(): void                   │    ├──────────────────────┤ ├──────────────────────┤
+    └────────────────────────────────────┘    │ - base_url: str      │ │ - responses: Dict    │
+                                              │ - model: str         │ └──────────────────────┘
+                                              │ - timeout: int       │
+                                              └──────────────────────┘
 ```
 
 ---
 
-### Paquete Unity: `LungCancerVR.MathModel` (C#)
+## 3. Diagrama de Clases - Cliente Unity (C#)
 
 ```
-┌─────────────────────────────────────────┐
-│         TumorGrowthModel                │
-├─────────────────────────────────────────┤
-│ - SensitiveCells: float                 │
-│ - ResistantCells: float                 │
-│ - K: float (capacidad de carga)         │
-│ - rs_base, rr_base: float               │
-│ - patient: PatientProfile               │
-│ - treatment: ITreatmentStrategy         │
-│ - solver: RK4Solver                     │
-├─────────────────────────────────────────┤
-│ + TotalVolume: float <<property>>       │
-│ + Simulate(days): void                  │
-│ + SetTreatment(strategy): void          │
-│ - ComputeDerivatives(): float[]         │
-│ - GetAdjustedRs(): float                │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    DIAGRAMA DE CLASES UML                                        │
+│                                 Subsistema: Cliente Unity (C#)                                   │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────┐
-│          PatientProfile                 │
-├─────────────────────────────────────────┤
-│ - Age: int                              │
-│ - IsSmoker: bool                        │
-│ - PackYears: float                      │
-│ - Diet: DietType                        │
-│ - GeneticFactor: float                  │
-├─────────────────────────────────────────┤
-│ + GetAgeGrowthModifier(): float         │
-│ + GetSmokingCapacityModifier(): float   │
-│ + GetDietModifier(): float              │
-│ + IsValid(out error): bool              │
-└─────────────────────────────────────────┘
+    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗
+    ║                              <<package>> LungCancerVR.MathModel                              ║
+    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝
 
-┌─────────────────────────────────────────┐
-│     <<interface>>                       │
-│     ITreatmentStrategy                  │
-├─────────────────────────────────────────┤
-│ + GetBeta(timeSinceTreatment): float    │
-│ + TreatmentName: string                 │
-└─────────────────────────────────────────┘
-            △
-            │ implementa
-    ┌───────┼───────┬───────┐
-    │       │       │       │
-┌───┴───┐ ┌─┴─┐  ┌──┴──┐ ┌──┴──┐
-│NoTreatment│Chemo│Radio│Immuno│
-└───────┘ └───┘  └─────┘ └─────┘
-
-┌─────────────────────────────────────────┐
-│            RK4Solver                    │
-├─────────────────────────────────────────┤
-│ - stepSize: float                       │
-│ - derivatives: Func<float,float[],float[]> │
-├─────────────────────────────────────────┤
-│ + Solve(t0, y0, tEnd): float[]          │
-│ + Step(t, y): float[]                   │
-└─────────────────────────────────────────┘
+    ┌─────────────────────────────────┐
+    │   <<enumeration>> DietType      │
+    ├─────────────────────────────────┤
+    │   Healthy                       │
+    │   Normal                        │
+    │   Poor                          │
+    └────────────────┬────────────────┘
+                     │ <<uses>>
+                     ▼
+    ┌───────────────────────────────────────────────────────────────────────────────────────┐
+    │                                  PatientProfile                                        │
+    │                                  <<entity>>                                            │
+    ├───────────────────────────────────────────────────────────────────────────────────────┤
+    │  + Age: int                                                                           │
+    │  + IsSmoker: bool                                                                     │
+    │  + PackYears: float                                                                   │
+    │  + Diet: DietType                                                                     │
+    │  + GeneticFactor: float = 1.0                                                         │
+    ├───────────────────────────────────────────────────────────────────────────────────────┤
+    │  + GetAgeGrowthModifier(): float                                                      │
+    │  + GetSmokingCapacityModifier(): float                                                │
+    │  + GetDietModifier(): float                                                           │
+    │  + GetCombinedModifier(): float                                                       │
+    │  + IsValid(out error: string): bool                                                   │
+    └────────────────────────────────────────────┬──────────────────────────────────────────┘
+                                                 │ 1
+                                                 │ <<composition>>
+                                                 ▼
+    ┌───────────────────────────────────────────────────────────────────────────────────────┐
+    │                                 TumorGrowthModel                                       │
+    │                                 <<domain service>>                                     │
+    ├───────────────────────────────────────────────────────────────────────────────────────┤
+    │  + SensitiveCells: float {Ns, cm³}        // Ecuación: dNs/dt = rs·Ns·ln(K/(Ns+Nr))  │
+    │  + ResistantCells: float {Nr, cm³}        // Ecuación: dNr/dt = rr·Nr·ln(K/(Ns+Nr))  │
+    │  «derived» + TotalVolume: float                                                       │
+    │  + CurrentTime: float {días}                                                          │
+    │  + TreatmentStartTime: float                                                          │
+    │  - K: float {capacidad de carga, cm³}                                                 │
+    │  - rs_base: float = 0.012 {tasa crecimiento sensibles, día⁻¹}                         │
+    │  - rr_base: float = 0.008 {tasa crecimiento resistentes, día⁻¹}                       │
+    │  - mutationRate: float = 1e-6                                                         │
+    │  - patient: PatientProfile                                                            │
+    │  - treatment: ITreatmentStrategy                                                      │
+    │  - solver: RK4Solver                                                                  │
+    ├───────────────────────────────────────────────────────────────────────────────────────┤
+    │  + Simulate(days: float): void                                                        │
+    │  + SetTreatment(strategy: ITreatmentStrategy): void                                   │
+    │  + ComputeDerivatives(t: float, y: float[]): float[]                                  │
+    │  + GetAdjustedGrowthRate(): float                                                     │
+    │  + GetProjection(daysAhead: int): List<SimulationPoint>                               │
+    │  + Reset(): void                                                                      │
+    └────────────────────┬────────────────────────────────────────────┬─────────────────────┘
+                         │ 1                                          │ 1
+                         │ <<composition>>                            │ <<aggregation>>
+                         ▼                                            ▼
+    ┌────────────────────────────────────┐       ┌──────────────────────────────────────────┐
+    │            RK4Solver               │       │     <<interface>> ITreatmentStrategy     │
+    │            <<utility>>             │       ├──────────────────────────────────────────┤
+    ├────────────────────────────────────┤       │  «readonly» + Name: string               │
+    │  - _stepSize: float = 0.1          │       │  «readonly» + CycleDuration: float       │
+    │  - _derivativeFunc: Func<>         │       │  «readonly» + MaxEfficacy: float         │
+    ├────────────────────────────────────┤       │  + GetBeta(time: float): float           │
+    │  + Solve(t0, y0, tEnd): float[]    │       └──────────────────────┬───────────────────┘
+    │  + Step(t, y): float[]             │                              │
+    └────────────────────────────────────┘                              │ <<realizes>>
+                                                           ┌────────────┼────────────┐
+                                                           │            │            │
+                                                           ▼            ▼            ▼
+    ┌───────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐
+    │   NoTreatmentStrategy     │ │   ChemotherapyStrategy    │ │   RadiotherapyStrategy    │
+    │   <<concrete>>            │ │   <<concrete>>            │ │   <<concrete>>            │
+    ├───────────────────────────┤ ├───────────────────────────┤ ├───────────────────────────┤
+    │                           │ │  Ciclo: 21 días           │ │  Sesiones: 25-30          │
+    │  β(t) = 0                 │ │  Eficacia: 75%            │ │  Eficacia: 80%            │
+    │                           │ │                           │ │                           │
+    │  (Sin tratamiento)        │ │  β(t) = βₘₐₓ(1-e^{-kt})   │ │  β(t) = pulso durante     │
+    │                           │ │       × (1-0.1×ciclo)     │ │         sesión activa     │
+    └───────────────────────────┘ └───────────────────────────┘ └───────────────────────────┘
+                                                                            │
+                                                           ┌────────────────┘
+                                                           ▼
+                                  ┌───────────────────────────┐
+                                  │  ImmunotherapyStrategy    │
+                                  │  <<concrete>>             │
+                                  ├───────────────────────────┤
+                                  │  Ciclo: 14-21 días        │
+                                  │  Eficacia: 40%            │
+                                  │                           │
+                                  │  β(t) = βₘₐₓ(1-e^{-kt})   │
+                                  │       × activación inmune │
+                                  └───────────────────────────┘
 ```
-
-**Relaciones:**
-- `TumorGrowthModel` **tiene** `PatientProfile` (composición)
-- `TumorGrowthModel` **tiene** `ITreatmentStrategy` (agregación)
-- `TumorGrowthModel` **usa** `RK4Solver` (composición)
-- Tratamientos concretos **implementan** `ITreatmentStrategy`
 
 ---
 
-## Diagrama de Paquetes
+## 4. Diagrama de Estados - LungState
+
+El sistema modela la condición pulmonar como una **máquina de estados finitos (FSM)**. Las transiciones dependen de métricas calculadas: `risk_score`, `total_volume`, y `growth_rate`.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    PulmoMed System                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────────┐    ┌──────────────────────┐      │
-│  │   Unity VR Client    │    │   Python Backend     │      │
-│  │   (C#)               │    │   (FastAPI)          │      │
-│  ├──────────────────────┤    ├──────────────────────┤      │
-│  │ ┌──────────────────┐ │    │ ┌──────────────────┐ │      │
-│  │ │ LungCancerVR.    │ │    │ │    app.api       │ │      │
-│  │ │ MathModel        │ │    │ │ (REST Endpoints) │ │      │
-│  │ └────────┬─────────┘ │    │ └────────┬─────────┘ │      │
-│  │          │           │    │          │           │      │
-│  │ ┌────────▼─────────┐ │    │ ┌────────▼─────────┐ │      │
-│  │ │ UnityEngine      │ │    │ │  app.services    │ │      │
-│  │ │ (VR Rendering)   │ │◄──HTTP──►(AITeacher)   │ │      │
-│  │ └──────────────────┘ │    │ └────────┬─────────┘ │      │
-│  │                      │    │          │           │      │
-│  └──────────────────────┘    │ ┌────────▼─────────┐ │      │
-│                              │ │ app.repositories │ │      │
-│                              │ │ (ChromaDB)       │ │      │
-│                              │ └────────┬─────────┘ │      │
-│                              │          │           │      │
-│                              │ ┌────────▼─────────┐ │      │
-│                              │ │    app.llm       │ │      │
-│                              │ │ (Ollama/Mock)    │ │      │
-│                              │ └──────────────────┘ │      │
-│                              └──────────────────────┘      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               DIAGRAMA DE ESTADOS UML - LungState                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+                                         ●
+                                         │
+                                         │ [tumor_volume == 0]
+                                         ▼
+                              ╔════════════════════════╗
+                              ║         SANO           ║
+                              ║    (estado inicial)    ║
+                              ╚════════════╤═══════════╝
+                                           │
+               ┌───────────────────────────┼───────────────────────────┐
+               │                           │                           │
+               │ [risk_score > 0.5         │ [tumor_volume > 0         │
+               │  AND volume == 0]         │  AND risk_score ≤ 0.5]    │
+               ▼                           │                           ▼
+    ╔════════════════════════╗             │            ╔════════════════════════╗
+    ║      EN_RIESGO         ║             │            ║        ESTABLE         ║
+    ║  (fumador/edad alta)   ║             │            ║   (tumor controlado)   ║
+    ╚════════════╤═══════════╝             │            ╚════════════╤═══════════╝
+                 │                         │                         │
+                 │ [volume > 0]            │                         │ [growth_rate > 1.1]
+                 │                         │                         │
+                 └─────────────────────────┼─────────────────────────┘
+                                           │
+                                           ▼
+                              ╔════════════════════════╗
+                              ║      PROGRESANDO       ║◀──────────────────────────┐
+                              ║   (tumor en avance)    ║                           │
+                              ╚════════════╤═══════════╝                           │
+                                           │                                       │
+               ┌───────────────────────────┼───────────────────────────┐           │
+               │                           │                           │           │
+               │ [tratamiento efectivo:    │ [volume > 100cm³          │           │
+               │  growth_rate < 0.9]       │  OR resistance > 50%]     │           │
+               ▼                           │                           ▼           │
+    ╔════════════════════════╗             │            ╔════════════════════════╗ │
+    ║        ESTABLE         ║             │            ║        CRITICO         ║ │
+    ║     (en remisión)      ║─────────────┘            ║  (pronóstico grave)    ║─┘
+    ╚════════════════════════╝                          ╚════════════╤═══════════╝
+                                                                     │ [tratamiento
+                                                                     │  muy efectivo]
+                                                                     │
+                                                                     │ [volume > 500cm³
+                                                                     │  OR metástasis]
+                                                                     ▼
+                                                        ╔════════════════════════╗
+                                                        ║       TERMINAL         ║
+                                                        ║    (estado final)      ║
+                                                        ╚════════════════════════╝
+                                                                     │
+                                                                     ▼
+                                                                     ◉
+
 ```
+
+### Tabla de Transiciones
+
+| Estado Origen | Guardia (Condición) | Estado Destino | Acción |
+|---------------|---------------------|----------------|--------|
+| **SANO** | `risk_score > 0.5 ∧ volume = 0` | EN_RIESGO | Alertar factores de riesgo |
+| **SANO** | `volume > 0` | ESTABLE | Iniciar monitoreo |
+| **EN_RIESGO** | `volume > 0` | PROGRESANDO | Iniciar tratamiento |
+| **ESTABLE** | `growth_rate > 1.1` | PROGRESANDO | Escalar tratamiento |
+| **PROGRESANDO** | `growth_rate < 0.9` | ESTABLE | Continuar tratamiento |
+| **PROGRESANDO** | `volume > 100 ∨ resistance > 50%` | CRITICO | Tratamiento agresivo |
+| **CRITICO** | `tratamiento muy efectivo` | PROGRESANDO | Reducir intensidad |
+| **CRITICO** | `volume > 500 ∨ metástasis` | TERMINAL | Cuidados paliativos |
 
 ---
 
-## Notas de Implementación
+## 5. Patrones de Diseño Aplicados
 
-| Patrón | Uso en el Sistema |
-|--------|-------------------|
-| **Repository Pattern** | `MedicalKnowledgeRepository` abstrae ChromaDB |
-| **Strategy Pattern** | `ITreatmentStrategy` para diferentes tratamientos |
-| **Dependency Injection** | `AITeacherService` recibe repository y llm_client |
-| **Singleton** | `get_repository()` y `get_settings()` |
-| **Protocol (Interface)** | `LLMClient` define contrato para LLMs |
-| **Factory** | `get_repository()` como factory function |
+| Patrón | Elemento | Justificación |
+|--------|----------|---------------|
+| **Strategy** | `ITreatmentStrategy` | Intercambiar algoritmos de tratamiento sin modificar `TumorGrowthModel` (OCP) |
+| **Repository** | `MedicalKnowledgeRepository` | Abstraer acceso a ChromaDB, facilitar testing |
+| **Dependency Injection** | `AITeacherService(repo, llm)` | Invertir dependencias, facilitar mocks (DIP) |
+| **Singleton** | `get_settings()`, `get_repository()` | Reutilizar recursos costosos (conexiones, modelos) |
+| **Value Object** | `TeacherResponse`, `SimulationState` | Inmutabilidad, validación automática (Pydantic) |
+| **Adapter** | `OllamaClient` | Adaptar API HTTP de Ollama a interfaz `LLMClient` |
+| **Template Method** | Prompt building en `PromptTemplates` | Estructura fija con partes variables |
 
 ---
 
-## Herramienta Recomendada
+## 6. Matriz de Clases por Responsabilidad
 
-- **PlantUML** o **Mermaid** para generar diagramas
-- Exportar en formato PNG/SVG para documentación
+| Clase | Tipo | Responsabilidad | Capa |
+|-------|------|-----------------|------|
+| `SimulationState` | Entity | Representar estado de simulación | Modelo |
+| `TeacherResponse` | Value Object | Representar respuesta educativa | Modelo |
+| `LungState` | Enum | Definir estados posibles del pulmón | Modelo |
+| `AITeacherService` | Service | Orquestar pipeline RAG+LLM | Servicio |
+| `MedicalKnowledgeRepository` | Repository | Acceder a base vectorial | Infraestructura |
+| `OllamaClient` | Adapter | Comunicar con LLM | Infraestructura |
+| `TumorGrowthModel` | Domain Service | Ejecutar simulación matemática | Dominio |
+| `PatientProfile` | Entity | Representar perfil del paciente | Modelo |
+| `RK4Solver` | Utility | Resolver ecuaciones diferenciales | Utilidad |
+| `ITreatmentStrategy` | Interface | Definir contrato de tratamientos | Abstracción |
+
+---
+
+*Documento generado siguiendo el estándar 4+1 de Kruchten (IEEE Software, 1995)*

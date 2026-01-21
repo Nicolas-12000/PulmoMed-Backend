@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     api_title: str = "LungCancerVR AI Teacher API"
     api_version: str = "2.1"
 
+    # Database (PostgreSQL)
+    database_url: str = "postgresql+asyncpg://pulmomed:pulmomed_secret@localhost:5432/pulmomed_db"
+
+    # JWT Authentication
+    jwt_secret_key: str = "your-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+
     # Vector Database
     chroma_persist_dir: str = "./knowledge_base/embeddings"
     collection_name: str = "medical_knowledge"

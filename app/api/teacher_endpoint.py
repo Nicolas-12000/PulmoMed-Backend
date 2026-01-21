@@ -2,7 +2,9 @@
 Expone servicios vía REST API (SOLID: Interface Segregation)
 """
 
+import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, HTTPException
 
@@ -51,7 +53,15 @@ async def consultar_profesor(
     """
     Endpoint principal: Recibe estado → Retorna feedback educativo
     Usa singleton de TeacherService para optimizar recursos.
+
+    Optimizado para VR:
+    - Timeout de 15s para no bloquear Unity
+    - Retorna tiempo de procesamiento para telemetría
+    - Fallback educativo si LLM tarda demasiado
     """
+    start_time = time.perf_counter()
+    settings = get_settings()
+
     try:
         # Importar singleton del main
         from main import get_teacher_service
@@ -62,7 +72,37 @@ async def consultar_profesor(
             f"Volumen: {state.total_volume:.2f} cm³"
         )
 
-        response = await service.get_educational_feedback(state)
+        # Timeout explícito para no bloquear Unity
+        try:
+            response = await asyncio.wait_for(
+                service.get_educational_feedback(state),
+                timeout=settings.ollama_timeout
+            )
+        except asyncio.TimeoutError:
+            logger.warning("⏱️ Timeout en consulta, usando respuesta fallback")
+            elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+            return {
+                "explicacion": (
+                    "El sistema está procesando muchas consultas. "
+                    "Basado en el estado actual del tumor, se recomienda "
+                    "consultar las guías NCCN para el estadio correspondiente."
+                ),
+                "recomendacion": (
+                    "Continúa observando la simulación y consulta nuevamente "
+                    "en unos momentos para obtener feedback personalizado."
+                ),
+                "fuentes": ["NCCN Guidelines 2024", "Timeout Fallback"],
+                "advertencia": (
+                    "⚠️ Respuesta simplificada por alta demanda. "
+                    "Intenta nuevamente para feedback completo."
+                ),
+                "retrieved_chunks": 0,
+                "llm_model": "fallback-timeout",
+                "model_used": "fallback-timeout",
+                "processing_time_ms": elapsed_ms,
+            }
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         # Return a Spanish-keyed dict for backward compatibility with clients/tests
         return {
@@ -73,6 +113,7 @@ async def consultar_profesor(
             "retrieved_chunks": response.retrieved_chunks,
             "llm_model": response.llm_model,
             "model_used": response.llm_model,
+            "processing_time_ms": elapsed_ms,
         }
 
     except Exception as e:

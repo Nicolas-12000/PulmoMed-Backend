@@ -1,372 +1,429 @@
-# Vista de Procesos - Modelo 4+1
+# Vista de Procesos - Modelo 4+1 de Kruchten
 
-## Descripción General
-
-La Vista de Procesos describe los aspectos dinámicos del sistema: flujos de ejecución, procesos concurrentes, comunicación y sincronización entre componentes en tiempo de ejecución.
-
----
-
-## Diagrama de Secuencia Principal
-
-### Flujo: Consulta del Estudiante al Profesor Virtual
-
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Unity   │     │ Backend  │     │ Teacher  │     │ Medical  │     │ RAG      │     │  Ollama  │
-│  Client  │     │  API     │     │ Service  │     │ Repo     │     │ Prompts  │     │  LLM     │
-└────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘
-     │                │                │                │                │                │
-     │  POST /consultar_profesor       │                │                │                │
-     │  {simulation_state}             │                │                │                │
-     │───────────────▶│                │                │                │                │
-     │                │                │                │                │                │
-     │                │ get_educational_feedback()      │                │                │
-     │                │───────────────▶│                │                │                │
-     │                │                │                │                │                │
-     │                │                │ _build_query() │                │                │
-     │                │                │───────┐        │                │                │
-     │                │                │       │ Extract tumor_diameter, stage,          │
-     │                │                │◀──────┘ pack_years, treatment_efficacy          │
-     │                │                │                │                │                │
-     │                │                │ find_similar() │                │                │
-     │                │                │───────────────▶│                │                │
-     │                │                │                │                │                │
-     │                │                │                │ ChromaDB.query()                │
-     │                │                │                │───────┐        │                │
-     │                │                │                │       │ Vector similarity       │
-     │                │                │                │◀──────┘ search                  │
-     │                │                │                │                │                │
-     │                │                │ List[Document] │                │                │
-     │                │                │◀───────────────│                │                │
-     │                │                │                │                │                │
-     │                │                │ _rerank_documents()             │                │
-     │                │                │───────┐        │                │                │
-     │                │                │       │ Cross-encoder scoring   │                │
-     │                │                │◀──────┘                         │                │
-     │                │                │                │                │                │
-     │                │                │ build_educational_prompt()      │                │
-     │                │                │────────────────────────────────▶│                │
-     │                │                │                │                │                │
-     │                │                │ prompt_string  │                │                │
-     │                │                │◀───────────────────────────────│                │
-     │                │                │                │                │                │
-     │                │                │ llm_client.query()              │                │
-     │                │                │───────────────────────────────────────────────▶│
-     │                │                │                │                │                │
-     │                │                │                │                │  HTTP POST     │
-     │                │                │                │                │  /api/generate │
-     │                │                │                │                │                │
-     │                │                │ LLM response   │                │                │
-     │                │                │◀──────────────────────────────────────────────│
-     │                │                │                │                │                │
-     │                │                │ _parse_response()               │                │
-     │                │                │───────┐        │                │                │
-     │                │                │       │ Extract JSON from response               │
-     │                │                │◀──────┘                         │                │
-     │                │                │                │                │                │
-     │                │ TeacherResponse│                │                │                │
-     │                │◀───────────────│                │                │                │
-     │                │                │                │                │                │
-     │  HTTP 200      │                │                │                │                │
-     │  {teacher_response}             │                │                │                │
-     │◀───────────────│                │                │                │                │
-     │                │                │                │                │                │
-     ▼                ▼                ▼                ▼                ▼                ▼
-```
+> **Propósito**: Describir los aspectos dinámicos del sistema: flujos de ejecución, procesos concurrentes, comunicación entre componentes y comportamiento en tiempo de ejecución.
+>
+> **Audiencia**: Integradores de sistemas, Desarrolladores, DevOps.
+>
+> **Diagramas UML**: Diagrama de Secuencia, Diagrama de Actividad, Diagrama de Comunicación.
 
 ---
 
-## Diagrama de Actividades: Pipeline RAG
+## 1. Introducción
+
+La Vista de Procesos aborda la concurrencia, distribución, rendimiento y escalabilidad del sistema. En PulmoMed:
+
+- **Backend**: Servidor async (FastAPI/Uvicorn) con event loop único
+- **Cliente VR**: Game loop de Unity con comunicación HTTP no bloqueante
+- **Comunicación**: REST/JSON sobre HTTP/1.1
+
+Esta vista responde a la pregunta: *"¿Cómo se comporta el sistema en tiempo de ejecución?"*
+
+---
+
+## 2. Diagrama de Secuencia - Consulta al Profesor Virtual
+
+Este es el **flujo principal** del sistema, representando el caso de uso más importante: el estudiante consulta al asistente IA durante una simulación.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              RAG Pipeline                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐                                                        │
-│  │     START       │                                                        │
-│  └────────┬────────┘                                                        │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────┐                                                        │
-│  │ Build Query     │  Extract: stage, tumor_diameter, pack_years,          │
-│  │ from State      │  treatments applied, current efficacy                 │
-│  └────────┬────────┘                                                        │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────┐     ┌─────────────────┐                               │
-│  │ Generate Query  │────▶│   ChromaDB      │                               │
-│  │ Embedding       │     │   Collection    │                               │
-│  │ (BGE-M3)        │     │                 │                               │
-│  └─────────────────┘     └────────┬────────┘                               │
-│                                   │                                         │
-│                                   ▼                                         │
-│                          ┌─────────────────┐                               │
-│                          │ Retrieve Top-K  │  K = 10 (config.RAG_TOP_K)   │
-│                          │ Documents       │                               │
-│                          └────────┬────────┘                               │
-│                                   │                                         │
-│                                   ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐       │
-│  │                     RERANKING PHASE                              │       │
-│  ├─────────────────────────────────────────────────────────────────┤       │
-│  │                                                                  │       │
-│  │  ┌─────────────────┐                                            │       │
-│  │  │ Cross-Encoder   │  Model: ms-marco-MiniLM-L-6-v2             │       │
-│  │  │ Scoring         │                                            │       │
-│  │  └────────┬────────┘                                            │       │
-│  │           │                                                      │       │
-│  │           ▼                                                      │       │
-│  │  ┌─────────────────┐                                            │       │
-│  │  │ Filter by       │  Threshold = 0.3                           │       │
-│  │  │ Relevance Score │                                            │       │
-│  │  └────────┬────────┘                                            │       │
-│  │           │                                                      │       │
-│  │           ▼                                                      │       │
-│  │  ┌─────────────────┐                                            │       │
-│  │  │ Sort by Score   │  Keep top-5 most relevant                  │       │
-│  │  │ Descending      │                                            │       │
-│  │  └─────────────────┘                                            │       │
-│  │                                                                  │       │
-│  └─────────────────────────────────────────────────────────────────┘       │
-│                                   │                                         │
-│                                   ▼                                         │
-│  ┌─────────────────┐     ┌─────────────────┐                               │
-│  │ Build Prompt    │◀────│ Context Docs    │                               │
-│  │ with Context    │     │ (Grounding)     │                               │
-│  └────────┬────────┘     └─────────────────┘                               │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────┐                                                        │
-│  │ LLM Generation  │  Ollama (llama3.2 / mistral)                          │
-│  └────────┬────────┘                                                        │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────┐                                                        │
-│  │ Parse JSON      │  Extract: explicacion, reflexion,                     │
-│  │ Response        │  sugerencias, advertencia, confianza                  │
-│  └────────┬────────┘                                                        │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────┐                                                        │
-│  │      END        │  Return TeacherResponse                               │
-│  └─────────────────┘                                                        │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        DIAGRAMA DE SECUENCIA UML - CONSULTA AL PROFESOR                         │
+│                                      (Escenario Principal)                                       │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────┐      ┌──────────┐      ┌──────────────┐      ┌───────────┐      ┌─────────┐      ┌────────┐
+  │ Usuario │      │  Unity   │      │   FastAPI    │      │ AITeacher │      │   RAG   │      │ Ollama │
+  │(Quest 3)│      │ Client   │      │  Endpoint    │      │  Service  │      │ Engine  │      │  LLM   │
+  └────┬────┘      └────┬─────┘      └──────┬───────┘      └─────┬─────┘      └────┬────┘      └───┬────┘
+       │                │                   │                    │                 │               │
+       │  1. Presiona   │                   │                    │                 │               │
+       │  "Consultar"   │                   │                    │                 │               │
+       │───────────────▶│                   │                    │                 │               │
+       │                │                   │                    │                 │               │
+       │                │  2. Serializa     │                    │                 │               │
+       │                │  SimulationState  │                    │                 │               │
+       │                │──────┐            │                    │                 │               │
+       │                │◀─────┘            │                    │                 │               │
+       │                │                   │                    │                 │               │
+       │                │  3. POST /api/v1/consultar_profesor    │                 │               │
+       │                │   {JSON payload}  │                    │                 │               │
+       │                │──────────────────▶│                    │                 │               │
+       │                │                   │                    │                 │               │
+       │                │                   │  4. Validar con    │                 │               │
+       │                │                   │     Pydantic       │                 │               │
+       │                │                   │──────┐             │                 │               │
+       │                │                   │◀─────┘             │                 │               │
+       │                │                   │                    │                 │               │
+       │                │                   │  5. get_educational_feedback(state)  │               │
+       │                │                   │───────────────────▶│                 │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │  6. check_cache()               │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │      ┌──────────┴──────────┐    │
+       │                │                   │                    │      │  alt [CACHE MISS]   │    │
+       │                │                   │                    │      └──────────┬──────────┘    │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │  7. _build_search_query(state)  │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │  8. retrieve_relevant_chunks(q) │
+       │                │                   │                    │────────────────▶│               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │                 │  9. embed(q)  │
+       │                │                   │                    │                 │──────┐        │
+       │                │                   │                    │                 │◀─────┘ BGE-M3 │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │                 │ 10. vector    │
+       │                │                   │                    │                 │     search    │
+       │                │                   │                    │                 │──────┐        │
+       │                │                   │                    │                 │◀─────┘ChromaDB│
+       │                │                   │                    │                 │               │
+       │                │                   │                    │  11. documents[]│               │
+       │                │                   │                    │◀────────────────│               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 12. filter_and_rerank(docs)     │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 13. build_prompt(state, docs)   │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 14. query(prompt)               │
+       │                │                   │                    │────────────────────────────────▶│
+       │                │                   │                    │                 │               │
+       │                │                   │                    │                 │    ┌──────────┤
+       │                │                   │                    │                 │    │ 15. LLM  │
+       │                │                   │                    │                 │    │ generate │
+       │                │                   │                    │                 │    │ (3-10s)  │
+       │                │                   │                    │                 │    └──────────┤
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 16. llm_response│               │
+       │                │                   │                    │◀────────────────────────────────│
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 17. parse_response()            │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │                 │               │
+       │                │                   │                    │ 18. cache_response()            │
+       │                │                   │                    │──────┐          │               │
+       │                │                   │                    │◀─────┘          │               │
+       │                │                   │                    │      └──────────┬──────────┘    │
+       │                │                   │                    │                 │               │
+       │                │                   │  19. TeacherResponse                 │               │
+       │                │                   │◀───────────────────│                 │               │
+       │                │                   │                    │                 │               │
+       │                │  20. HTTP 200 OK  │                    │                 │               │
+       │                │  {JSON response}  │                    │                 │               │
+       │                │◀──────────────────│                    │                 │               │
+       │                │                   │                    │                 │               │
+       │                │ 21. Mostrar en    │                    │                 │               │
+       │                │     panel 3D      │                    │                 │               │
+       │                │──────┐            │                    │                 │               │
+       │                │◀─────┘            │                    │                 │               │
+       │                │                   │                    │                 │               │
+       │ 22. Lee        │                   │                    │                 │               │
+       │ explicación    │                   │                    │                 │               │
+       │◀───────────────│                   │                    │                 │               │
+       │                │                   │                    │                 │               │
+       ▼                ▼                   ▼                    ▼                 ▼               ▼
 ```
 
 ---
 
-## Diagrama de Estado: Ciclo de Vida de la Simulación VR
+## 3. Diagrama de Secuencia - Autenticación de Usuario
+
+Basado en las imágenes de referencia proporcionadas, este diagrama modela el flujo de registro e inicio de sesión.
 
 ```
-                                    ┌───────────────────┐
-                                    │                   │
-                                    ▼                   │
-┌──────────────┐     ┌──────────────────────┐         │
-│              │     │                      │         │
-│   IDLE       │────▶│   SELECTING_MODE     │         │
-│              │     │                      │         │
-└──────────────┘     └──────────┬───────────┘         │
-       ▲                        │                      │
-       │               ┌────────┴────────┐             │
-       │               ▼                 ▼             │
-       │     ┌─────────────────┐  ┌─────────────────┐ │
-       │     │   FREE_MODE     │  │  LIBRARY_MODE   │ │
-       │     │                 │  │                 │ │
-       │     │ • Custom params │  │ • Load case    │ │
-       │     │ • Any tumor size│  │ • Fixed params │ │
-       │     │ • Exploration   │  │ • Validation   │ │
-       │     └────────┬────────┘  └────────┬────────┘ │
-       │              │                    │          │
-       │              └────────┬───────────┘          │
-       │                       ▼                      │
-       │             ┌─────────────────┐              │
-       │             │   SIMULATING    │              │
-       │             │                 │              │
-       │             │ • RK4 step loop │              │
-       │             │ • Update tumor  │              │
-       │             │ • Apply treatmt │              │
-       │             └────────┬────────┘              │
-       │                      │                       │
-       │                      │ [time_step complete]  │
-       │                      ▼                       │
-       │             ┌─────────────────┐              │
-       │             │   CONSULTING    │──────────────┘
-       │             │   TEACHER       │  [retry/continue]
-       │             │                 │
-       │             │ • Send state    │
-       │             │ • Wait response │
-       │             │ • Show feedback │
-       │             └────────┬────────┘
-       │                      │
-       │          ┌───────────┴───────────┐
-       │          ▼                       ▼
-       │  ┌─────────────────┐    ┌─────────────────┐
-       │  │  SIMULATION_    │    │   EXAM_MODE     │
-       │  │  COMPLETE       │    │                 │
-       │  │                 │    │ • Timed session │
-       │  │ • Show results  │    │ • Graded resp.  │
-       │  │ • Compare cases │    │ • Professor see │
-       │  └────────┬────────┘    └────────┬────────┘
-       │           │                      │
-       └───────────┴──────────────────────┘
-                   [reset]
-```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        DIAGRAMA DE SECUENCIA UML - AUTENTICACIÓN                                 │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 
----
+                                          ╔═══════════════════════════╗
+                                          ║         REGISTRO          ║
+                                          ╚═══════════════════════════╝
 
-## Flujo de Comunicación HTTP
+  ┌─────────┐           ┌────────┐           ┌───────────────────┐           ┌────────────┐
+  │ Usuario │           │  Web   │           │ SistemaAutenticac.│           │BaseDeDatos │
+  └────┬────┘           └───┬────┘           └─────────┬─────────┘           └──────┬─────┘
+       │                    │                          │                            │
+       │  1. Llenar form.   │                          │                            │
+       │    de registro     │                          │                            │
+       │───────────────────▶│                          │                            │
+       │                    │                          │                            │
+       │                    │  2. Solicitud registro   │                            │
+       │                    │      (datos)             │                            │
+       │                    │─────────────────────────▶│                            │
+       │                    │                          │                            │
+       │                    │                          │  3. Solicita asignación    │
+       │                    │                          │     de rol                 │
+       │                    │                          │───────────────────────────▶│
+       │                    │                          │                            │
+       │                    │                          │  4. Retorna rol            │
+       │                    │                          │◀───────────────────────────│
+       │                    │                          │                            │
+       │                    │                          │  5. Guardar nuevo usuario  │
+       │                    │                          │     y rol                  │
+       │                    │                          │───────────────────────────▶│
+       │                    │                          │                            │
+       │                    │                          │  6. Confirmación           │
+       │                    │                          │◀───────────────────────────│
+       │                    │                          │                            │
+       │                    │  7. Registro exitoso     │                            │
+       │                    │◀─────────────────────────│                            │
+       │                    │                          │                            │
+       │  8. Mostrar        │                          │                            │
+       │  mensaje éxito     │                          │                            │
+       │◀───────────────────│                          │                            │
+       │                    │                          │                            │
 
-### Request/Response Típico
+                                          ╔═══════════════════════════╗
+                                          ║      INICIO SESIÓN        ║
+                                          ╚═══════════════════════════╝
 
-```
-Unity VR Client                                Python Backend
-      │                                              │
-      │   HTTP POST /consultar_profesor              │
-      │   Content-Type: application/json             │
-      │   ─────────────────────────────────────────▶│
-      │   {                                          │
-      │     "tumor_diameter_cm": 2.5,                │
-      │     "stage": "II",                           │
-      │     "pack_years": 30.0,                      │
-      │     "treatment_type": "chemotherapy",        │
-      │     "treatment_efficacy": 65.0,              │
-      │     "simulation_day": 45                     │
-      │   }                                          │
-      │                                              │
-      │                     Processing...            │
-      │                     (RAG + LLM: ~2-5 sec)    │
-      │                                              │
-      │   HTTP 200 OK                                │
-      │   Content-Type: application/json             │
-      │◀─────────────────────────────────────────────│
-      │   {                                          │
-      │     "explicacion": "El tumor en estadío II...",
-      │     "reflexion": "¿Has considerado la...",   │
-      │     "sugerencias": ["Evaluar QT adyuvante..."],
-      │     "advertencia": null,                     │
-      │     "confianza": 0.85,                       │
-      │     "fuentes_utilizadas": ["Harrison...", ...]
-      │   }                                          │
-      │                                              │
-      ▼                                              ▼
+       │                    │                          │                            │
+       │  9. Ingresar       │                          │                            │
+       │  credenciales      │                          │                            │
+       │───────────────────▶│                          │                            │
+       │                    │                          │                            │
+       │                    │ 10. Solicitud            │                            │
+       │                    │     autenticación        │                            │
+       │                    │─────────────────────────▶│                            │
+       │                    │                          │                            │
+       │                    │                          │ 11. Verificar              │
+       │                    │                          │     credenciales           │
+       │                    │                          │───────────────────────────▶│
+       │                    │                          │                            │
+       │                    │                          │ 12. Confirmación           │
+       │                    │                          │◀───────────────────────────│
+       │                    │                          │                            │
+       │                    │ 13. Autenticación        │                            │
+       │                    │     exitosa              │                            │
+       │                    │◀─────────────────────────│                            │
+       │                    │                          │                            │
+       │ 14. Redirige       │                          │                            │
+       │     según rol      │                          │                            │
+       │◀───────────────────│                          │                            │
+       │                    │                          │                            │
+       ▼                    ▼                          ▼                            ▼
 ```
 
 ---
 
-## Concurrencia y Paralelismo
-
-### Modelo de Concurrencia del Backend
+## 4. Diagrama de Actividad - Pipeline RAG
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            FastAPI + Uvicorn                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌───────────────────────────────────────────────────────────────────┐    │
-│   │                      Event Loop (asyncio)                          │    │
-│   ├───────────────────────────────────────────────────────────────────┤    │
-│   │                                                                    │    │
-│   │    Request 1      Request 2      Request 3      Request N         │    │
-│   │    (User A)       (User B)       (User C)       (User ...)        │    │
-│   │        │              │              │              │              │    │
-│   │        ▼              ▼              ▼              ▼              │    │
-│   │   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐         │    │
-│   │   │ Handler │   │ Handler │   │ Handler │   │ Handler │         │    │
-│   │   │ Corout. │   │ Corout. │   │ Corout. │   │ Corout. │         │    │
-│   │   └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘         │    │
-│   │        │              │              │              │              │    │
-│   │        └──────────────┴──────────────┴──────────────┘              │    │
-│   │                              │                                      │    │
-│   │                              ▼                                      │    │
-│   │                    ┌─────────────────┐                             │    │
-│   │                    │ Shared Resources │                            │    │
-│   │                    │ • ChromaDB Client│ (thread-safe)              │    │
-│   │                    │ • HTTP Pool      │ (for Ollama)               │    │
-│   │                    │ • Embedding Model│ (loaded once)              │    │
-│   │                    └─────────────────┘                             │    │
-│   │                                                                    │    │
-│   └───────────────────────────────────────────────────────────────────┘    │
-│                                                                             │
-│   Workers: 1 (default uvicorn) - puede escalarse con gunicorn workers      │
-│   I/O Bound: RAG queries, LLM calls son async (httpx)                      │
-│   CPU Bound: Embedding generation (podría usar thread pool)                │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           DIAGRAMA DE ACTIVIDAD UML - PIPELINE RAG                               │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+                                         ●
+                                         │
+                                         ▼
+                          ┌──────────────────────────────┐
+                          │ 1. Recibir SimulationState   │
+                          │    desde Cliente VR          │
+                          └──────────────┬───────────────┘
+                                         │
+                                         ▼
+                          ┌──────────────────────────────┐
+                          │ 2. Validar con Pydantic      │
+                          │    • Rangos de edad (18-100) │
+                          │    • Volúmenes ≥ 0           │
+                          │    • pack_years si fumador   │
+                          └──────────────┬───────────────┘
+                                         │
+                              ┌──────────◇──────────┐
+                              │                     │
+                              ▼                     ▼
+                         [Válido]              [Inválido]
+                              │                     │
+                              │                     ▼
+                              │          ┌──────────────────────┐
+                              │          │ Retornar HTTP 422    │
+                              │          │ Validation Error     │
+                              │          └──────────────────────┘
+                              │
+                              ▼
+                   ┌──────────────────────────────┐
+                   │ 3. Verificar Cache           │
+                   │    key = hash(stage,         │
+                   │    treatment, pack_bucket)   │
+                   └──────────────┬───────────────┘
+                                  │
+                       ┌──────────◇──────────┐
+                       │                     │
+                       ▼                     ▼
+                  [CACHE HIT]           [CACHE MISS]
+                       │                     │
+                       │                     ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 4. Construir Search Query    │
+                       │       │    "Tumor estadío {stage},   │
+                       │       │     tratamiento {treatment}" │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │                      ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 5. Generar Embedding         │
+                       │       │    BGE-M3 (multilingual)     │
+                       │       │    → vector 1024 dims        │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │                      ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 6. Vector Search ChromaDB    │
+                       │       │    Cosine similarity         │
+                       │       │    Top-K = 10 documentos     │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │                      ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 7. Re-ranking                │
+                       │       │    • Filtrar score < 0.3     │
+                       │       │    • Ordenar por relevancia  │
+                       │       │    • Mantener Top-5          │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │                      ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 8. Construir Prompt          │
+                       │       │    system_prompt +           │
+                       │       │    context_docs +            │
+                       │       │    simulation_state +        │
+                       │       │    instrucciones educativas  │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │                      ▼
+                       │       ┌──────────────────────────────┐
+                       │       │ 9. LLM Generation            │
+                       │       │    Ollama (llama3.2)         │
+                       │       │    Timeout: 15 segundos      │
+                       │       └──────────────┬───────────────┘
+                       │                      │
+                       │           ┌──────────◇──────────┐
+                       │           │                     │
+                       │           ▼                     ▼
+                       │     [Respuesta OK]        [Timeout/Error]
+                       │           │                     │
+                       │           │                     ▼
+                       │           │       ┌──────────────────────┐
+                       │           │       │ Fallback Response    │
+                       │           │       │ "Sistema procesando" │
+                       │           │       └──────────┬───────────┘
+                       │           │                  │
+                       │           ▼                  │
+                       │   ┌──────────────────────────────┐
+                       │   │ 10. Parsear Respuesta        │◀┘
+                       │   │     Extraer JSON estructurado│
+                       │   └──────────────┬───────────────┘
+                       │                  │
+                       │                  ▼
+                       │   ┌──────────────────────────────┐
+                       │   │ 11. Guardar en Cache         │
+                       │   │     TTL = 5 minutos          │
+                       │   └──────────────┬───────────────┘
+                       │                  │
+                       └─────────────────▶│
+                                          ▼
+                          ┌──────────────────────────────┐
+                          │ 12. Retornar TeacherResponse │
+                          │     + processing_time_ms     │
+                          └──────────────┬───────────────┘
+                                         │
+                                         ▼
+                                         ◉
 ```
-
-### Puntos de Sincronización
-
-| Recurso | Tipo | Estrategia |
-|---------|------|------------|
-| ChromaDB Collection | Compartido | Cliente thread-safe, singleton |
-| Embedding Model | Compartido | Cargado al inicio, read-only |
-| Ollama HTTP Client | Compartido | Connection pool (httpx) |
-| Settings | Read-only | Cargado una vez al startup |
 
 ---
 
-## Manejo de Errores y Timeouts
+## 5. Modelo de Concurrencia
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Error Handling Flow                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌───────────────┐                                              │
-│  │ HTTP Request  │                                              │
-│  └───────┬───────┘                                              │
-│          │                                                       │
-│          ▼                                                       │
-│  ┌───────────────┐     ┌───────────────┐                        │
-│  │ Pydantic      │─NO─▶│ HTTP 422      │  Validation Error     │
-│  │ Validation    │     │ Unprocessable │                        │
-│  └───────┬───────┘     └───────────────┘                        │
-│          │ OK                                                    │
-│          ▼                                                       │
-│  ┌───────────────┐     ┌───────────────┐                        │
-│  │ ChromaDB      │─ERR▶│ HTTP 500      │  + Log + Fallback     │
-│  │ Query         │     │ Internal Err  │  (empty context)      │
-│  └───────┬───────┘     └───────────────┘                        │
-│          │ OK                                                    │
-│          ▼                                                       │
-│  ┌───────────────┐     ┌───────────────┐                        │
-│  │ Ollama LLM    │─ERR▶│ Mock Response │  Automatic fallback   │
-│  │ Query         │     │ Generated     │  if Ollama unavailable│
-│  └───────┬───────┘     └───────────────┘                        │
-│          │ OK                                                    │
-│          ▼                                                       │
-│  ┌───────────────┐     ┌───────────────┐                        │
-│  │ JSON Parse    │─ERR▶│ Default Resp  │  + Warning logged     │
-│  │ Response      │     │ Structure     │                        │
-│  └───────┬───────┘     └───────────────┘                        │
-│          │ OK                                                    │
-│          ▼                                                       │
-│  ┌───────────────┐                                              │
-│  │ HTTP 200 OK   │                                              │
-│  └───────────────┘                                              │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   MODELO DE CONCURRENCIA                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              FastAPI + Uvicorn (ASGI Server)                                     │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────────────────────┐   │
+│   │                              Event Loop (asyncio)                                        │   │
+│   │                              Single-threaded, non-blocking                               │   │
+│   ├─────────────────────────────────────────────────────────────────────────────────────────┤   │
+│   │                                                                                          │   │
+│   │    Request 1          Request 2          Request 3          Request N                   │   │
+│   │    (Quest A)          (Quest B)          (Quest C)          (...)                       │   │
+│   │        │                  │                  │                  │                        │   │
+│   │        ▼                  ▼                  ▼                  ▼                        │   │
+│   │   ┌──────────┐       ┌──────────┐       ┌──────────┐       ┌──────────┐                 │   │
+│   │   │ Coroutine│       │ Coroutine│       │ Coroutine│       │ Coroutine│                 │   │
+│   │   │ Handler  │       │ Handler  │       │ Handler  │       │ Handler  │                 │   │
+│   │   └─────┬────┘       └─────┬────┘       └─────┬────┘       └─────┬────┘                 │   │
+│   │         │                  │                  │                  │                        │   │
+│   │         └──────────────────┴──────────────────┴──────────────────┘                        │   │
+│   │                                        │                                                  │   │
+│   │                          await (I/O bound, no bloquea)                                   │   │
+│   │                                        │                                                  │   │
+│   │                                        ▼                                                  │   │
+│   │         ╔═════════════════════════════════════════════════════════════════╗              │   │
+│   │         ║                    RECURSOS COMPARTIDOS                          ║              │   │
+│   │         ╠═════════════════════════════════════════════════════════════════╣              │   │
+│   │         ║  • ChromaDB Client      → Singleton, thread-safe                 ║              │   │
+│   │         ║  • Embedding Model      → Loaded once at startup (read-only)     ║              │   │
+│   │         ║  • HTTP Connection Pool → httpx.AsyncClient (Ollama)             ║              │   │
+│   │         ║  • Response Cache       → Dict con TTL (asyncio-safe)            ║              │   │
+│   │         ║  • Settings             → Inmutable (Pydantic BaseSettings)      ║              │   │
+│   │         ╚═════════════════════════════════════════════════════════════════╝              │   │
+│   │                                                                                          │   │
+│   └─────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+│   Configuración de Producción:                                                                   │
+│   ┌─────────────────────────────────────────────────────────────────────────────────────────┐   │
+│   │  • Workers: 1 (uvicorn default) — escalable con gunicorn a N workers                    │   │
+│   │  • I/O Bound: RAG queries, LLM calls son async (no bloquean event loop)                 │   │
+│   │  • CPU Bound: Embedding generation (puede usar ThreadPoolExecutor)                      │   │
+│   │  • Max Connections: ~100 concurrent (httpx pool)                                        │   │
+│   └─────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tiempos de Respuesta Esperados
+## 6. Tiempos de Respuesta por Fase
 
-| Fase | Tiempo Típico | Observaciones |
-|------|---------------|---------------|
-| Validación Pydantic | < 1ms | Sincrónico |
-| ChromaDB Query | 50-200ms | Depende de colección |
-| Embedding Generation | 100-500ms | GPU acelera |
-| Cross-Encoder Rerank | 200-800ms | 10 docs típico |
-| Ollama Generation | 2-10s | Depende del modelo |
-| **Total E2E** | **3-12s** | Sin caché |
+| Fase | Tiempo Típico | Tiempo Máximo | Categoría |
+|------|---------------|---------------|-----------|
+| Validación Pydantic | < 1 ms | 5 ms | Sync, CPU |
+| Check Cache | < 1 ms | 2 ms | Sync, Memory |
+| Build Query | < 5 ms | 10 ms | Sync, CPU |
+| **Generate Embedding** | 100-300 ms | 500 ms | Sync, GPU/CPU |
+| ChromaDB Query | 50-150 ms | 200 ms | Async, I/O |
+| Reranking | 200-500 ms | 800 ms | Sync, CPU |
+| **LLM Generation** | **2-8 s** | **15 s** | Async, I/O |
+| Parse Response | < 10 ms | 50 ms | Sync, CPU |
+| **Total E2E (sin cache)** | **3-10 s** | **15 s** | - |
+| **Total E2E (cache hit)** | **< 50 ms** | **100 ms** | - |
 
 ---
 
-## Herramientas Recomendadas
+## 7. Manejo de Errores y Fallbacks
 
-- **PlantUML** o **Mermaid** para diagramas de secuencia
-- **Draw.io** para diagramas de actividad
-- Usar colores para distinguir actores/sistemas
+| Punto de Fallo | Detección | Estrategia de Recuperación | Respuesta |
+|----------------|-----------|---------------------------|-----------|
+| Validación Pydantic | `ValidationError` | Mensaje de error detallado | HTTP 422 |
+| ChromaDB no disponible | `ConnectionError` | Continuar sin contexto RAG | HTTP 200 (degradado) |
+| Ollama timeout (>15s) | `asyncio.TimeoutError` | Respuesta educativa genérica | HTTP 200 (fallback) |
+| Ollama no disponible | `ConnectionError` | Activar MockLLM | HTTP 200 (mock) |
+| JSON parse error | `JSONDecodeError` | Respuesta por defecto | HTTP 200 (default) |
+| Cache lleno (>100) | Verificación size | LRU eviction | N/A (interno) |
+| Prompt injection | `_is_malicious()` | Rechazar consulta | HTTP 400 |
+
+---
+
+*Documento generado siguiendo el estándar 4+1 de Kruchten (IEEE Software, 1995)*
