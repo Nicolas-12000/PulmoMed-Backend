@@ -1,4 +1,4 @@
-# LungCancerVR Simulator - Backend IA
+# PulmoMed - Backend IA Educativo
 
 <div align="center">
 
@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/license-MIT-orange)
 ![Status](https://img.shields.io/badge/status-development-yellow)
 
-**Sistema de IA Educativa con RAG Local para Simulador VR de Cáncer de Pulmón**
+**Sistema de IA Educativa con RAG para Simulador VR de Oncología Pulmonar**
 
 [Características](#características) • [Instalación](#instalación) • [Testing](#testing) • [Arquitectura](#arquitectura) • [**📖 GUÍA COMPLETA DE TESTING**](TESTING_GUIDE.md)
 
@@ -21,8 +21,8 @@
 
 Backend Python con FastAPI que proporciona feedback educativo médico preciso usando:
 - **RAG (Retrieval-Augmented Generation)** con ChromaDB
-- **Embeddings multilingües** (BGE-M3, soporta español)
-- **LLM local** (Ollama - opcional, actualmente en modo mock)
+- **Embeddings multilingües** (paraphrase-multilingual-MiniLM, soporta español)
+- **LLM flexible** (Groq cloud / Ollama local)
 - **Arquitectura SOLID** (Repository, Service Layer, Dependency Injection)
 
 ## ✨ Características
@@ -33,18 +33,22 @@ Backend Python con FastAPI que proporciona feedback educativo médico preciso us
 - [x] Modelos de dominio con Pydantic (validación completa)
 - [x] Service Layer con lógica de negocio educativa
 - [x] Repository Pattern (fácil cambiar a Weaviate después)
-- [x] LLM Mock con respuestas educativas realistas
+- [x] **LLM Groq** para pruebas sin GPU local
 - [x] **7 casos predefinidos** basados en estadísticas SEER (endpoint `/api/v1/library_cases`)
 - [x] Testing completo (>85% cobertura)
 - [x] CORS configurado para Unity Client
 - [x] **Sistema de Historial Tipo Git** (snapshots + deltas, ahorro 74% memoria)
 - [x] **Modelo Matemático C#** validado (42 tests, compatible Unity)
-- [x] **Embeddings multilingües** (BGE-M3 para documentos en español)
+- [x] **Embeddings multilingües** para documentos en español
+- [x] **Autenticación JWT** con roles (student, professor, admin)
+- [x] **Sistema de Exámenes** con calificación automática
+- [x] **Sistema de Cursos** con inscripción por código
 
 ### 🚧 Pendiente
 - [ ] Integración con Ollama real (requiere GPU)
 - [ ] Indexación de PDFs médicos (NCCN Guidelines, estudios SEER)
-- [ ] Deployment con Docker
+- [ ] Deployment con Docker en producción
+- [ ] Base de datos PostgreSQL en producción
 
 ## 🚀 Instalación
 
@@ -314,8 +318,8 @@ MIT License - Ver `LICENSE` para más detalles.
 
 ## 👨‍💻 Autor
 
-**Proyecto LungCancerVR Simulator**  
-Versión 2.0 - Diciembre 2025
+**Proyecto PulmoMed**  
+Versión 2.1 - Febrero 2026
 
 ---
 

@@ -12,7 +12,7 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 from app.core.config import get_settings
 from app.llm.interface import LLMClient
-from app.llm.ollama_client import OllamaClient
+from app.llm.groq_client import get_llm_client  # Factory que elige Groq/Ollama
 from app.models.simulation_state import SimulationState, TeacherResponse
 from app.rag.prompts import PromptTemplates
 from app.repositories.medical_knowledge_repo import get_repository
@@ -34,7 +34,7 @@ class AITeacherService:
     ) -> None:
         self.settings = get_settings()
         self.repository = repository or get_repository()
-        self.llm_client: LLMClient = llm_client or OllamaClient()
+        self.llm_client: LLMClient = llm_client or get_llm_client()  # Auto-detecta Groq/Ollama
         self.prompt_templates = PromptTemplates()
 
         # Caché de respuestas para evitar recomputar (optimización VR)

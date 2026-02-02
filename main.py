@@ -1,6 +1,6 @@
 """
 FastAPI Application Entry Point
-Main entry para el backend LungCancerVR
+Main entry para el backend PulmoMed
 OPTIMIZACIONES:
 - Singleton para TeacherService (evita recargar embeddings)
 - Lifecycle management para HTTP clients
@@ -47,22 +47,25 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     description="""
-    ## Backend IA para LungCancerVR Simulator
+    ## PulmoMed - Backend IA Educativo
 
     Sistema de IA educativa con RAG (Retrieval-Augmented Generation) para proporcionar
     feedback médico preciso basado en guías NCCN y datos SEER.
 
     ### Características:
-    - ✅ **RAG Local**: ChromaDB + BGE embeddings
-    - ✅ **LLM Mock**: Respuestas educativas mientras se configura Ollama
-    - ✅ **Arquitectura SOLID**: Repository, Service Layer, Dependency Injection
-    - ✅ **Testing Completo**: >90% cobertura
+    - ✅ **RAG Local**: ChromaDB + embeddings multilingües
+    - ✅ **LLM Flexible**: Groq (cloud) / Ollama (local)
+    - ✅ **Arquitectura SOLID**: Repository, Service Layer, DI
+    - ✅ **Autenticación JWT**: OAuth2 con roles
+    - ✅ **Exámenes**: Creación y evaluación automática
 
     ### Endpoints Principales:
-    - `POST /api/v1/consultar_profesor`: Feedback educativo sobre estado de simulación
+    - `POST /api/v1/consultar_profesor`: Feedback educativo IA
+    - `POST /api/v1/auth/register`: Registro de usuarios
+    - `POST /api/v1/exams/`: Gestión de exámenes
     - `GET /api/v1/health`: Health check del sistema
 
-    ### Integración Unity:
+    ### Integración Unity (VR):
     ```csharp
     var client = new HttpClient { BaseAddress = new Uri("http://localhost:8000") };
     var response = await client.PostAsJsonAsync(
@@ -96,7 +99,7 @@ app.include_router(stats_router, prefix="/api/v1")
 async def lifespan(app: FastAPI):
     """Lifespan handler: initializes resources on startup and cleans up on shutdown."""
     logger.info("=" * 60)
-    logger.info(f"🚀 LungCancerVR Backend v{settings.api_version} iniciando...")
+    logger.info(f"🚀 PulmoMed Backend v{settings.api_version} iniciando...")
     logger.info(f"📍 Host: {settings.api_host}:{settings.api_port}")
     logger.info(f"🧠 Embedding Model: {settings.embedding_model}")
     logger.info(f"💾 Vector DB: {settings.chroma_persist_dir}")
@@ -132,7 +135,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # CLEANUP: Cerrar conexiones HTTP
-    logger.info("Cerrando LungCancerVR Backend...")
+    logger.info("Cerrando PulmoMed Backend...")
     await OllamaClient.close_client()  # Cerrar connection pool
     repo = get_repository()
     repo.close()
@@ -145,7 +148,7 @@ app.router.lifespan_context = lifespan
 async def root():
     """Endpoint raíz"""
     return {
-        "message": "LungCancerVR AI Teacher Backend",
+        "message": "PulmoMed - Backend IA Educativo",
         "version": settings.api_version,
         "docs": "/docs",
         "health": "/api/v1/health",

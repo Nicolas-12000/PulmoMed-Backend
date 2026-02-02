@@ -1,4 +1,4 @@
-# FastAPI Backend - LungCancerVR Simulator
+# FastAPI Backend - PulmoMed
 # Version: 2.1 - Local/Open-Source
 
 # API Framework

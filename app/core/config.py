@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # API Settings
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    api_title: str = "LungCancerVR AI Teacher API"
+    api_title: str = "PulmoMed API"
     api_version: str = "2.1"
 
     # Database (PostgreSQL)
@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     ollama_temperature: float = 0.3
     ollama_max_tokens: int = 512  # Reducido para respuestas más rápidas
     ollama_timeout: float = 15.0  # Timeout agresivo para VR
+
+    # LLM (Groq - para pruebas locales sin GPU)
+    groq_api_key: str = ""  # Obtener en https://console.groq.com/keys
+    groq_model: str = "llama-3.1-8b-instant"  # Rápido y gratuito
+    groq_temperature: float = 0.3
+    groq_max_tokens: int = 1024
 
     # RAG Configuration
     retrieval_top_k: int = 5
