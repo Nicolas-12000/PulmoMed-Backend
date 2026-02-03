@@ -317,7 +317,7 @@ class TestImmunotherapyStrategy:
         assert "Inmunoterapia" in immuno.name
         assert immuno.api_code == "inmuno"
         assert immuno.cycle_duration == 21.0
-        assert immuno.max_efficacy == 0.60
+        assert immuno.max_efficacy == 0.65
 
     def test_beta_gradual_increase(self):
         """Beta aumenta gradualmente."""

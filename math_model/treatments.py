@@ -196,8 +196,8 @@ class ImmunotherapyStrategy(TreatmentStrategy):
 
     def __init__(
         self,
-        beta_max: float = 0.60,
-        activation_rate: float = 0.05,
+        beta_max: float = 0.65,
+        activation_rate: float = 0.08,
         cycle_duration: float = 21.0
     ):
         self._beta_max = beta_max
