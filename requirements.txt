@@ -1,5 +1,5 @@
 # FastAPI Backend - PulmoMed
-# Version: 2.1 - Local/Open-Source
+# Version: 2.2 - PostgreSQL pgvector + FastEmbed (sin PyTorch)
 
 # API Framework
 fastapi==0.109.0
@@ -8,29 +8,26 @@ pydantic==2.5.3
 pydantic-settings==2.1.0
 email-validator==2.2.0
 
-# Vector Database
-chromadb==0.4.22
+# Vector search in PostgreSQL (reemplaza ChromaDB)
+pgvector==0.3.6
 
-# Embeddings - BGE-M3 (multilingüe, soporta español)
-sentence-transformers==2.3.1
-transformers==4.36.2
-# torch se instala por separado: pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-# RAG Orchestration
-langchain==0.1.4
-langchain-community==0.0.16
+# Embeddings ONNX - sin transformers/torch (~90MB vs ~2GB)
+fastembed==0.5.1
 
 # PDF Processing (para indexación de documentos médicos)
 pypdf==4.0.1
 python-multipart==0.0.6
 
-# HTTP Client (para Ollama)
+# HTTP Client (para Ollama / Groq)
 httpx==0.26.0
 
 # Database (PostgreSQL async)
 sqlalchemy[asyncio]==2.0.25
 asyncpg==0.29.0
 alembic==1.13.1
+
+# Numeric solver (Gompertz + RK4)
+numpy==1.26.4
 
 # Authentication
 passlib[bcrypt]==1.7.4

@@ -25,15 +25,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
 
-    # Vector Database
-    chroma_persist_dir: str = "./knowledge_base/embeddings"
+    # Vector store: pgvector persiste en PostgreSQL; memory solo RAM (tests)
+    vector_backend: str = "pgvector"
     collection_name: str = "medical_knowledge"
 
-    # Embeddings - Modelo multilingüe LIGERO para VR
-    # paraphrase-multilingual-MiniLM: ~500MB vs BGE-M3 ~2-4GB
-    # Soporta español, suficiente calidad para RAG educativo
-    # Alternativa pesada: BAAI/bge-m3 (mejor calidad, 4x más RAM)
+    # Embeddings: fastembed (ONNX, sin PyTorch) o hash (tests / fallback)
+    # MiniLM multilingüe ~90MB vs sentence-transformers+torch ~2GB
+    embedding_backend: str = "fastembed"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_dimension: int = 384
+    embedding_cache_dir: str = "./knowledge_base/embeddings"
     embedding_device: str = "cpu"
 
     # LLM (Ollama - requiere GPU)

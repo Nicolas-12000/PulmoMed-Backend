@@ -1,177 +1,174 @@
 """
-Medical Knowledge Repository - ChromaDB Abstraction
-Repository Pattern: Abstrae acceso a vector database (SOLID: OCP)
+Medical Knowledge Repository
+Consulta en RAM (latencia VR). PostgreSQL + pgvector es la fuente persistente.
 """
 
-import logging
-from typing import Any, Dict, List
+from __future__ import annotations
 
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
+import logging
+from typing import Any
+
+from sqlalchemy import select
 
 from app.core.config import get_settings
+from app.rag.embeddings import EmbeddingEncoder, build_encoder
+from app.rag.vector_index import InMemoryVectorIndex
 
 logger = logging.getLogger(__name__)
 
 
 class MedicalKnowledgeRepository:
     """
-    Repositorio para conocimiento médico vectorizado
-    Abstrae ChromaDB para facilitar cambio a Weaviate/Pinecone después
+    Repositorio de conocimiento médico.
+    - retrieve/add son síncronos contra un índice en memoria.
+    - hydrate/persist sincronizan con pgvector cuando PostgreSQL está disponible.
     """
 
-    def __init__(self):
+    def __init__(self, encoder: EmbeddingEncoder | None = None):
         self.settings = get_settings()
-        self._client = None
-        self._collection = None
-        self._embedding_model = None
+        self._encoder = encoder
+        self._index = InMemoryVectorIndex()
+        self._initialized = False
 
-    def initialize(self):
-        """
-        Inicializa ChromaDB y modelo de embeddings
-        Lazy loading: solo se carga cuando se necesita
-        """
-        if self._client is not None:
+    @property
+    def encoder(self) -> EmbeddingEncoder:
+        if self._encoder is None:
+            self._encoder = build_encoder(self.settings)
+        return self._encoder
+
+    def initialize(self) -> None:
+        if self._initialized:
             return
-
-        logger.info(f"Inicializando ChromaDB en {self.settings.chroma_persist_dir}")
-
-        # ChromaDB client (persistente)
-        self._client = chromadb.PersistentClient(
-            path=self.settings.chroma_persist_dir,
-            settings=ChromaSettings(anonymized_telemetry=False),
+        logger.info(
+            "RAG listo (backend=%s, embeddings=%s)",
+            self.settings.vector_backend,
+            self.settings.embedding_backend,
         )
-
-        # Obtener o crear colección
-        try:
-            self._collection = self._client.get_collection(
-                name=self.settings.collection_name
-            )
-            logger.info(f"Colección '{self.settings.collection_name}' cargada")
-        except Exception:
-            logger.warning("Colección no existe, se creará al indexar documentos")
-            self._collection = None
-
-        # Modelo de embeddings (BGE-base-en-v1.5)
-        logger.info(f"Cargando modelo {self.settings.embedding_model}")
-        self._embedding_model = SentenceTransformer(
-            self.settings.embedding_model, device=self.settings.embedding_device
-        )
+        self._initialized = True
 
     def retrieve_relevant_chunks(
         self, query: str, top_k: int | None = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Recupera chunks relevantes para una consulta (RAG retrieval)
-
-        Args:
-            query: Consulta en lenguaje natural
-            top_k: Número de chunks a recuperar (default: settings.retrieval_top_k)
-
-        Returns:
-            Lista de dicts con {text, metadata, distance}
-        """
-        if self._collection is None:
+    ) -> list[dict[str, Any]]:
+        if self._index.count == 0:
             logger.warning("Colección vacía, retornando lista vacía")
             return []
 
         top_k = top_k or self.settings.retrieval_top_k
-
-        # Generar embedding de la consulta
-        query_embedding = self._embedding_model.encode(
-            query, convert_to_tensor=False
-        ).tolist()
-
-        # Query a ChromaDB
-        results = self._collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
-
-        # Formatear resultados
-        chunks = []
-        if results["documents"] and results["documents"][0]:
-            for i, doc in enumerate(results["documents"][0]):
-                chunks.append(
-                    {
-                        "text": doc,
-                        "metadata": (
-                            results["metadatas"][0][i] if results["metadatas"] else {}
-                        ),
-                        "distance": (
-                            results["distances"][0][i] if results["distances"] else 1.0
-                        ),
-                    }
-                )
-
-        logger.info(f"Recuperados {len(chunks)} chunks para query: '{query[:50]}...'")
+        query_embedding = self.encoder.encode_one(query)
+        chunks = self._index.query(query_embedding, top_k)
+        logger.info("Recuperados %s chunks para query: '%s...'", len(chunks), query[:50])
         return chunks
 
     def add_documents(
         self,
-        texts: List[str],
-        metadatas: List[Dict[str, Any]] | None = None,
-        ids: List[str] | None = None,
+        texts: list[str],
+        metadatas: list[dict[str, Any]] | None = None,
+        ids: list[str] | None = None,
     ) -> None:
-        """
-        Añade documentos a la colección (para futura indexación de PDFs)
+        if not texts:
+            return
 
-        Args:
-            texts: Lista de textos a indexar
-            metadatas: Metadata asociada a cada texto
-            ids: IDs únicos (si None, se autogenera)
-        """
-        if self._collection is None:
-            self._collection = self._client.create_collection(
-                name=self.settings.collection_name
-            )
-
-        # Generar embeddings
-        embeddings = self._embedding_model.encode(
-            texts, convert_to_tensor=False, show_progress_bar=True
-        ).tolist()
-
-        # Generar IDs si no se proporcionan
+        embeddings = self.encoder.encode(texts)
         if ids is None:
-            ids = [f"doc_{i}" for i in range(len(texts))]
+            ids = [f"doc_{self._index.count + i}" for i in range(len(texts))]
 
-        # Insertar en ChromaDB
-        self._collection.add(
-            documents=texts,
-            embeddings=embeddings,
-            metadatas=metadatas or [{} for _ in texts],
+        self._index.add(
             ids=ids,
+            texts=texts,
+            embeddings=embeddings,
+            metadatas=metadatas,
         )
+        logger.info("Añadidos %s documentos al índice RAG", len(texts))
 
-        logger.info(f"Añadidos {len(texts)} documentos a la colección")
-
-    def get_collection_stats(self) -> Dict[str, Any]:
-        """Retorna estadísticas de la colección"""
-        if self._collection is None:
-            return {"status": "empty", "count": 0}
-
+    def get_collection_stats(self) -> dict[str, Any]:
+        count = self._index.count
         return {
-            "status": "active",
-            "count": self._collection.count(),
+            "status": "active" if count else "empty",
+            "count": count,
             "name": self.settings.collection_name,
+            "backend": self.settings.vector_backend,
+            "embedding_backend": self.settings.embedding_backend,
         }
 
-    def close(self):
-        """Cierra conexiones (cleanup)"""
-        # ChromaDB se persiste automáticamente
-        logger.info("Repository cerrado")
+    async def hydrate_from_postgres(self) -> bool:
+        if self.settings.vector_backend != "pgvector":
+            return False
+
+        try:
+            from app.core.database import get_session_factory
+            from app.models.db_models import MedicalChunk
+
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                result = await session.execute(select(MedicalChunk))
+                rows = result.scalars().all()
+                if not rows:
+                    return False
+
+                self._index.clear()
+                self._index.add(
+                    ids=[row.id for row in rows],
+                    texts=[row.content for row in rows],
+                    embeddings=[list(row.embedding) for row in rows],
+                    metadatas=[_row_metadata(row) for row in rows],
+                )
+                logger.info("Cargados %s chunks desde pgvector", len(rows))
+                return True
+        except Exception as exc:
+            logger.warning("No se pudo hidratar pgvector (%s). RAG queda en memoria.", exc)
+            return False
+
+    async def persist_to_postgres(self) -> bool:
+        if self.settings.vector_backend != "pgvector" or self._index.count == 0:
+            return False
+
+        try:
+            from app.core.database import get_session_factory
+            from app.models.db_models import MedicalChunk
+
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                for item in self._index.items:
+                    await session.merge(
+                        MedicalChunk(
+                            id=item.chunk_id,
+                            content=item.text,
+                            source=str(item.metadata.get("source", "")),
+                            page=item.metadata.get("page"),
+                            extra_metadata=item.metadata,
+                            embedding=item.embedding,
+                        )
+                    )
+                await session.commit()
+            logger.info("Persistidos %s chunks en pgvector", self._index.count)
+            return True
+        except Exception as exc:
+            logger.warning("No se pudo persistir en pgvector: %s", exc)
+            return False
+
+    def close(self) -> None:
+        logger.info("Repository cerrado (%s documentos en RAM)", self._index.count)
 
 
-# Singleton global (Dependency Injection simple)
-_repository_instance = None
+def _row_metadata(row) -> dict[str, Any]:
+    metadata = dict(row.extra_metadata or {})
+    metadata.setdefault("source", row.source or "pgvector")
+    if row.page is not None:
+        metadata.setdefault("page", row.page)
+    return metadata
+
+
+_repository_instance: MedicalKnowledgeRepository | None = None
 
 
 def get_repository() -> MedicalKnowledgeRepository:
-    """Factory para Dependency Injection"""
     global _repository_instance
     if _repository_instance is None:
         _repository_instance = MedicalKnowledgeRepository()
         _repository_instance.initialize()
     return _repository_instance
+
+
+def reset_repository() -> None:
+    global _repository_instance
+    _repository_instance = None

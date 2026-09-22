@@ -104,7 +104,7 @@ class AITeacherService:
     def _filter_and_rerank_chunks(self, query: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Rerank chunks by their returned 'distance' and filter by threshold.
 
-        Uses `distance` returned by Chroma: lower is better. Keeps only
+        Uses `distance` from cosine search: lower is better. Keeps only
         chunks with distance < settings.rerank_distance_threshold.
         """
         if not chunks:

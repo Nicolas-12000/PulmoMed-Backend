@@ -1,37 +1,15 @@
 """Endpoint del modelo tumoral usado por la visualización de Unity."""
 
-from uuid import uuid4
+import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.simulation_schemas import (
-    LungSimulationFrame,
-    LungSimulationRequest,
-    LungSimulationResponse,
-)
-from math_model.patient_profile import DietType, PatientProfile
-from math_model.treatments import (
-    ChemotherapyStrategy,
-    ImmunotherapyStrategy,
-    NoTreatmentStrategy,
-    RadiotherapyStrategy,
-)
-from math_model.tumor_growth_model import TumorGrowthModel
+from app.models.simulation_state import SimulationState
+from app.schemas.simulation_schemas import LungSimulationRequest, LungSimulationResponse
+from app.services.simulation_service import run_lung_trajectory
+from app.services.simulation_state_mapper import teacher_state_from_lung
 
 router = APIRouter(prefix="/simulation", tags=["Simulación tumoral"])
-
-DIETS = {
-    "saludable": DietType.HEALTHY,
-    "normal": DietType.NORMAL,
-    "mala": DietType.POOR,
-}
-
-TREATMENTS = {
-    "ninguno": NoTreatmentStrategy,
-    "quimio": ChemotherapyStrategy,
-    "radio": RadiotherapyStrategy,
-    "inmuno": ImmunotherapyStrategy,
-}
 
 
 @router.post(
@@ -40,56 +18,25 @@ TREATMENTS = {
     summary="Generar trayectoria de crecimiento tumoral para Unity",
 )
 async def run_lung_simulation(request: LungSimulationRequest) -> LungSimulationResponse:
-    """Ejecuta RK4 en el backend y retorna frames listos para animar en Unity."""
+    """Ejecuta RK4 fuera del event loop y retorna frames para animar en Unity."""
     try:
-        patient = PatientProfile(
-            age=request.edad,
-            is_smoker=request.es_fumador,
-            pack_years=request.pack_years,
-            diet=DIETS[request.dieta],
-            genetic_factor=request.factor_genetico,
-        )
-        model = TumorGrowthModel(
-            patient=patient,
-            initial_sensitive_volume=request.volumen_inicial_sensible,
-            initial_resistant_volume=request.volumen_inicial_resistente,
-        )
-        model.set_treatment(TREATMENTS[request.tratamiento]())
-
-        initial_volume = model.total_volume
-        frames = [_frame(model, day=0, capacity=model.capacity)]
-
-        for day in range(1, request.dias + 1):
-            model.simulate_step(1.0)
-            if day % request.intervalo_muestra == 0 or day == request.dias:
-                frames.append(_frame(model, day=day, capacity=model.capacity))
-
-        return LungSimulationResponse(
-            simulation_id=str(uuid4()),
-            modelo="Gompertz polimorfico + RK4",
-            dias_simulados=request.dias,
-            capacidad_carga=model.capacity,
-            volumen_inicial=initial_volume,
-            volumen_final=model.total_volume,
-            estadio_final=model.get_approximate_stage(),
-            frames=frames,
-        )
+        return await asyncio.to_thread(run_lung_trajectory, request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-def _frame(
-    model: TumorGrowthModel,
-    day: int,
-    capacity: float,
-) -> LungSimulationFrame:
-    total = model.total_volume
-    return LungSimulationFrame(
-        dia=day,
-        volumen_sensible=model.sensitive_cells,
-        volumen_resistente=model.resistant_cells,
-        volumen_total=total,
-        fraccion_resistente=(model.resistant_cells / total) if total > 0 else 0.0,
-        progreso=min(1.0, total / max(capacity, 0.001)),
-        estadio=model.get_approximate_stage(),
-    )
+@router.post(
+    "/teacher-state",
+    response_model=SimulationState,
+    response_model_by_alias=True,
+    summary="Estado alineado con Gompertz+Rk4 para consultar_profesor",
+)
+async def lung_teacher_state(request: LungSimulationRequest) -> SimulationState:
+    """Re-ejecuta la trayectoria y devuelve el snapshot del último día (misma fuente que /run)."""
+    try:
+        result = await asyncio.to_thread(run_lung_trajectory, request)
+        if not result.frames:
+            raise HTTPException(status_code=422, detail="Trayectoria vacía")
+        return teacher_state_from_lung(request, result.frames[-1])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

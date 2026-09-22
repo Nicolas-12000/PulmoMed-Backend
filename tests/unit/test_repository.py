@@ -1,35 +1,17 @@
 """
 Unit Tests - Repository Layer
-Prueba acceso a ChromaDB y retrieval
+Prueba índice en memoria + HashEncoder (sin descargar modelos)
 """
-
-import shutil
-import tempfile
 
 import pytest
 
-from app.core.config import get_settings
+from app.rag.embeddings import HashEncoder
 from app.repositories.medical_knowledge_repo import MedicalKnowledgeRepository
 
 
 @pytest.fixture
-def temp_chroma_dir():
-    """Fixture: Directorio temporal para ChromaDB (aislamiento entre tests)"""
-    temp_dir = tempfile.mkdtemp()
-    yield temp_dir
-    # Cleanup después del test
-    shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.fixture
-def repository(temp_chroma_dir, monkeypatch):
-    """Fixture: Repositorio con colección temporal"""
-    # Parchear settings para usar directorio temporal
-    settings = get_settings()
-    monkeypatch.setattr(settings, "chroma_persist_dir", temp_chroma_dir)
-
-    repo = MedicalKnowledgeRepository()
-    repo.settings.chroma_persist_dir = temp_chroma_dir
+def repository():
+    repo = MedicalKnowledgeRepository(encoder=HashEncoder(dimension=384))
     repo.initialize()
     return repo
 
@@ -38,12 +20,29 @@ class TestMedicalKnowledgeRepository:
     """Tests para Repository Layer"""
 
     def test_repository_initialization(self, repository):
-        """Test: Inicialización correcta del repositorio"""
-        assert repository._client is not None
-        assert repository._embedding_model is not None
+        assert repository.encoder is not None
+        assert repository.get_collection_stats()["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_hydrate_skipped_for_memory_backend(self, repository):
+        assert await repository.hydrate_from_postgres() is False
+
+    @pytest.mark.asyncio
+    async def test_persist_skipped_when_empty(self, repository, monkeypatch):
+        monkeypatch.setattr(repository.settings, "vector_backend", "pgvector")
+        assert await repository.persist_to_postgres() is False
+
+    @pytest.mark.asyncio
+    async def test_hydrate_handles_db_errors(self, repository, monkeypatch):
+        monkeypatch.setattr(repository.settings, "vector_backend", "pgvector")
+
+        def boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr("app.core.database.get_session_factory", boom)
+        assert await repository.hydrate_from_postgres() is False
 
     def test_add_documents(self, repository):
-        """Test: Añadir documentos a la colección"""
         texts = [
             "El cáncer de pulmón no microcítico representa el 85% de los casos.",
             "La mutación EGFR es común en adenocarcinomas de pacientes no fumadores.",
@@ -60,8 +59,6 @@ class TestMedicalKnowledgeRepository:
         assert stats["count"] == 2
 
     def test_retrieve_relevant_chunks(self, repository):
-        """Test: Retrieval de chunks relevantes"""
-        # Primero añadir documentos con metadata
         texts = [
             "El tratamiento estándar para estadio IA es la resección quirúrgica.",
             "La quimioterapia con cisplatino mejora la supervivencia en estadio III.",
@@ -74,7 +71,6 @@ class TestMedicalKnowledgeRepository:
         ]
         repository.add_documents(texts, metadatas=metadatas)
 
-        # Query relevante
         chunks = repository.retrieve_relevant_chunks(
             query="tratamiento quirúrgico estadio temprano", top_k=2
         )
@@ -86,22 +82,77 @@ class TestMedicalKnowledgeRepository:
         assert "distance" in chunks[0]
 
     def test_get_collection_stats(self, repository):
-        """Test: Obtener estadísticas de la colección"""
         stats = repository.get_collection_stats()
 
         assert "status" in stats
         assert "count" in stats
         assert stats["status"] in ["empty", "active"]
-        assert stats["count"] == 0  # Colección nueva vacía
+        assert stats["count"] == 0
 
-    def test_retrieve_empty_collection(self, temp_chroma_dir, monkeypatch):
-        """Test: Retrieval en colección vacía no debe fallar"""
-        settings = get_settings()
-        monkeypatch.setattr(settings, "chroma_persist_dir", temp_chroma_dir)
-
-        repo = MedicalKnowledgeRepository()
-        repo.settings.chroma_persist_dir = temp_chroma_dir
+    def test_retrieve_empty_collection(self):
+        repo = MedicalKnowledgeRepository(encoder=HashEncoder())
         repo.initialize()
-
         chunks = repo.retrieve_relevant_chunks("test query")
         assert chunks == []
+
+    def test_initialize_is_idempotent_and_skips_empty_add(self, repository):
+        repository.initialize()
+        repository.add_documents([])
+        repository.close()
+        assert repository.get_collection_stats()["count"] == 0
+
+    def test_lazy_hash_encoder_from_settings(self):
+        repo = MedicalKnowledgeRepository()
+        assert repo.encoder.dimension == 384
+
+    @pytest.mark.asyncio
+    async def test_hydrate_and_persist_with_fake_session(self, repository, monkeypatch):
+        monkeypatch.setattr(repository.settings, "vector_backend", "pgvector")
+
+        class FakeRow:
+            id = "chunk-1"
+            content = "Adenocarcinoma EGFR estadio IA"
+            embedding = [0.1] * 32
+            extra_metadata = {"source": "nccn"}
+            source = "nccn"
+            page = 1
+
+        class FakeResult:
+            def scalars(self):
+                return self
+
+            def all(self):
+                return [FakeRow()]
+
+        class FakeSession:
+            merged = []
+
+            async def execute(self, *_args, **_kwargs):
+                return FakeResult()
+
+            async def merge(self, obj):
+                self.merged.append(obj)
+                return obj
+
+            async def commit(self):
+                return None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+        def factory():
+            return FakeSession()
+
+        monkeypatch.setattr(
+            "app.core.database.get_session_factory",
+            lambda: factory,
+        )
+        encoder = HashEncoder(dimension=32)
+        repo = MedicalKnowledgeRepository(encoder=encoder)
+        repo.settings.vector_backend = "pgvector"
+        assert await repo.hydrate_from_postgres() is True
+        assert repo.get_collection_stats()["count"] == 1
+        assert await repo.persist_to_postgres() is True

@@ -10,6 +10,8 @@ import math
 
 import numpy as np
 import pytest
+
+scipy = pytest.importorskip("scipy")
 from scipy.integrate import solve_ivp
 
 

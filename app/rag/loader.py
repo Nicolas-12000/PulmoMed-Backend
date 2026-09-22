@@ -1,6 +1,6 @@
 """
 PDF Loader - Indexación de Documentos Médicos
-Prepara PDFs de NCCN/SEER para ChromaDB (futuro uso)
+Prepara PDFs de NCCN/SEER para pgvector
 """
 
 import logging
@@ -97,7 +97,7 @@ class MedicalPDFLoader:
 
     def index_chunks(self, chunks: List[Dict[str, any]]):
         """
-        Indexa chunks en ChromaDB
+        Indexa chunks en el repositorio RAG (RAM + pgvector)
 
         Args:
             chunks: Lista de dicts con {text, metadata}
@@ -113,7 +113,7 @@ class MedicalPDFLoader:
             for i, chunk in enumerate(chunks)
         ]
 
-        logger.info(f"Indexando {len(chunks)} chunks en ChromaDB...")
+        logger.info("Indexando %s chunks...", len(chunks))
         self.repository.add_documents(texts=texts, metadatas=metadatas, ids=ids)
         logger.info("✅ Indexación completada")
 
@@ -124,10 +124,6 @@ def index_knowledge_base(pdf_directory: str = "./knowledge_base"):
 
     Uso:
         python -m app.rag.loader
-
-    O desde Python:
-        from app.rag.loader import index_knowledge_base
-        index_knowledge_base("./knowledge_base")
     """
     logger.info("=" * 60)
     logger.info("📚 Iniciando indexación de base de conocimiento médico")
@@ -135,7 +131,6 @@ def index_knowledge_base(pdf_directory: str = "./knowledge_base"):
 
     loader = MedicalPDFLoader()
 
-    # Cargar todos los PDFs del directorio
     try:
         chunks = loader.load_directory(pdf_directory)
 
@@ -147,10 +142,8 @@ def index_knowledge_base(pdf_directory: str = "./knowledge_base"):
             logger.info("   3. Ejecuta: python -m app.rag.loader")
             return
 
-        # Indexar
         loader.index_chunks(chunks)
 
-        # Estadísticas
         stats = loader.repository.get_collection_stats()
         logger.info("\n✅ Base de conocimiento lista:")
         logger.info(f"   - Total documentos: {stats['count']}")
@@ -162,5 +155,4 @@ def index_knowledge_base(pdf_directory: str = "./knowledge_base"):
 
 
 if __name__ == "__main__":
-    # Ejecutar como script standalone
     index_knowledge_base()

@@ -20,8 +20,8 @@
 ## 📋 Descripción
 
 Backend Python con FastAPI que proporciona feedback educativo médico preciso usando:
-- **RAG (Retrieval-Augmented Generation)** con ChromaDB
-- **Embeddings multilingües** (paraphrase-multilingual-MiniLM, soporta español)
+- **RAG (Retrieval-Augmented Generation)** con PostgreSQL + pgvector
+- **Embeddings ONNX** (FastEmbed MiniLM, soporta español, sin PyTorch)
 - **LLM flexible** (Groq cloud / Ollama local)
 - **Arquitectura SOLID** (Repository, Service Layer, Dependency Injection)
 
@@ -29,7 +29,8 @@ Backend Python con FastAPI que proporciona feedback educativo médico preciso us
 
 ### ✅ Implementado
 - [x] API REST con FastAPI (docs automáticas en `/docs`)
-- [x] Sistema RAG con ChromaDB persistente
+- [x] Sistema RAG con PostgreSQL pgvector
+- [x] Modelo matemático Gompertz+RK4 expuesto a Unity (`POST /api/v1/simulation/run`)
 - [x] Modelos de dominio con Pydantic (validación completa)
 - [x] Service Layer con lógica de negocio educativa
 - [x] Repository Pattern (fácil cambiar a Weaviate después)
@@ -59,17 +60,20 @@ Backend Python con FastAPI que proporciona feedback educativo médico preciso us
 
 ### Paso 1: Clonar y Setup
 ```powershell
-cd "C:\Users\nicolas garcia\Desktop\Plumomed"
+cd PulmoMed-Backend
 
 # Crear entorno virtual
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 
-# Instalar PyTorch (CPU)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-# Instalar dependencias
+# Instalar dependencias (FastEmbed/ONNX, sin PyTorch)
 pip install -r requirements.txt
+```
+
+PostgreSQL con pgvector:
+
+```powershell
+docker compose up -d postgres
 ```
 
 ### Paso 2: Configurar Variables de Entorno
@@ -197,7 +201,7 @@ graph TD
     B --> C[Service Layer]
     C --> D[Repository Layer]
     C --> E[LLM Client]
-    D --> F[ChromaDB]
+    D --> F[PostgreSQL + pgvector]
     E --> G[Ollama Mock/Real]
 ```
 
@@ -249,11 +253,10 @@ EMBEDDING_MODEL=pritamdeka/PubMedBERT-mnli-snli-scinli  # Específico médico
 
 ## 🐛 Troubleshooting
 
-### Error: "ChromaDB collection not found"
+### Error: "Colección vacía / 0 documentos"
 ```powershell
-# Eliminar colección corrupta
-rm -r knowledge_base\embeddings\*
-python main.py  # Recreará automáticamente
+# El arranque siembra casos SEER automáticamente.
+# Para PDFs: python -m app.rag.loader
 ```
 
 ### Tests Fallan: "Import fastapi could not be resolved"

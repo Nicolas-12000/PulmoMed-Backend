@@ -125,45 +125,25 @@ class TestMedicalKnowledgeRepository:
 
     def test_create_repository(self):
         """Crear repositorio."""
-        with patch('app.repositories.medical_knowledge_repo.get_settings') as mock_settings:
-            mock_settings.return_value = MagicMock()
-            mock_settings.return_value.chroma_persist_path = "/tmp/test_chroma"
-            mock_settings.return_value.embedding_model = "test_model"
+        from app.rag.embeddings import HashEncoder
 
-            # El repositorio puede requerir ChromaDB
-            try:
-                repo = MedicalKnowledgeRepository()
-                assert repo is not None
-            except Exception:
-                # Si falla por dependencias, skip
-                pytest.skip("ChromaDB no disponible")
+        repo = MedicalKnowledgeRepository(encoder=HashEncoder())
+        assert repo is not None
 
     def test_retrieve_relevant_chunks_structure(self):
         """Chunks recuperados tienen estructura correcta."""
-        with patch('app.repositories.medical_knowledge_repo.get_settings') as mock_settings:
-            mock_settings.return_value = MagicMock()
-            mock_settings.return_value.chroma_persist_path = "/tmp/test_chroma"
-            mock_settings.return_value.embedding_model = "test_model"
+        from app.rag.embeddings import HashEncoder
 
-            try:
-                repo = MedicalKnowledgeRepository()
-
-                # Mock del collection
-                repo.collection = MagicMock()
-                repo.collection.query.return_value = {
-                    "documents": [["Contenido sobre tumores"]],
-                    "metadatas": [[{"source": "test.pdf"}]],
-                    "distances": [[0.5]]
-                }
-
-                chunks = repo.retrieve_relevant_chunks(
-                    query="¿Qué es un tumor?",
-                    top_k=3
-                )
-
-                assert isinstance(chunks, list)
-            except Exception:
-                pytest.skip("ChromaDB no disponible")
+        repo = MedicalKnowledgeRepository(encoder=HashEncoder())
+        repo.add_documents(
+            ["Contenido sobre tumores pulmonares y estadificación TNM."],
+            metadatas=[{"source": "test.pdf"}],
+            ids=["doc_1"],
+        )
+        chunks = repo.retrieve_relevant_chunks(query="¿Qué es un tumor?", top_k=3)
+        assert isinstance(chunks, list)
+        assert chunks
+        assert "text" in chunks[0]
 
 
 # =============================================================================
@@ -312,24 +292,11 @@ class TestRAGEdgeCases:
 
     def test_retrieve_with_empty_query(self):
         """Recuperar con query vacío."""
-        with patch('app.repositories.medical_knowledge_repo.get_settings') as mock_settings:
-            mock_settings.return_value = MagicMock()
-            mock_settings.return_value.chroma_persist_path = "/tmp/test"
-            mock_settings.return_value.embedding_model = "test"
+        from app.rag.embeddings import HashEncoder
 
-            try:
-                repo = MedicalKnowledgeRepository()
-                repo.collection = MagicMock()
-                repo.collection.query.return_value = {
-                    "documents": [[]],
-                    "metadatas": [[]],
-                    "distances": [[]]
-                }
-
-                chunks = repo.retrieve_relevant_chunks("", top_k=3)
-                assert isinstance(chunks, list)
-            except Exception:
-                pytest.skip("ChromaDB no disponible")
+        repo = MedicalKnowledgeRepository(encoder=HashEncoder())
+        chunks = repo.retrieve_relevant_chunks("", top_k=3)
+        assert isinstance(chunks, list)
 
 
 # =============================================================================

@@ -13,9 +13,10 @@ class LungSimulationRequest(BaseModel):
     factor_genetico: float = Field(default=1.0, ge=0.5, le=2.0)
     volumen_inicial_sensible: float = Field(default=0.35, gt=0, le=100)
     volumen_inicial_resistente: float = Field(default=0.01, ge=0, le=100)
-    tratamiento: Literal["ninguno", "quimio", "radio", "inmuno"] = "ninguno"
+    tratamiento: Literal["ninguno", "quimio", "radio", "inmuno", "cirugia"] = "ninguno"
     dias: int = Field(default=180, ge=1, le=730)
     intervalo_muestra: int = Field(default=1, ge=1, le=30)
+    dia_inicio_tratamiento: int = Field(default=0, ge=0, le=730)
 
 
 class LungSimulationFrame(BaseModel):
@@ -36,4 +37,5 @@ class LungSimulationResponse(BaseModel):
     volumen_inicial: float
     volumen_final: float
     estadio_final: str
+    tiempo_ms: float = 0.0
     frames: list[LungSimulationFrame]

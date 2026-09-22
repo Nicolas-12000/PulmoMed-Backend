@@ -45,7 +45,7 @@ class SimulationState(BaseModel):
     )
 
     # Tratamiento Actual
-    active_treatment: Literal["ninguno", "quimio", "radio", "inmuno"] = Field(
+    active_treatment: Literal["ninguno", "quimio", "radio", "inmuno", "cirugia"] = Field(
         default="ninguno", alias="tratamiento_activo"
     )
     treatment_days: int = Field(

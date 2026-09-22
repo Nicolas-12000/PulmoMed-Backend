@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL + pgvector (usuarios, exámenes y RAG)
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: pulmomed-postgres
     restart: unless-stopped
     environment:
@@ -19,18 +19,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - pulmomed-network
-
-  # ChromaDB Vector Database
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: pulmomed-chromadb
-    restart: unless-stopped
-    ports:
-      - "8001:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
     networks:
       - pulmomed-network
 
@@ -63,14 +51,12 @@ services:
   #     - "8000:8000"
   #   environment:
   #     - DATABASE_URL=postgresql+asyncpg://pulmomed:pulmomed_secret@postgres:5432/pulmomed_db
-  #     - CHROMA_HOST=chromadb
-  #     - CHROMA_PORT=8000
+  #     - VECTOR_BACKEND=pgvector
+  #     - EMBEDDING_BACKEND=fastembed
   #     - OLLAMA_BASE_URL=http://ollama:11434
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
-  #     chromadb:
-  #       condition: service_started
   #   volumes:
   #     - ./knowledge_base:/app/knowledge_base:ro
   #   networks:
@@ -82,5 +68,4 @@ networks:
 
 volumes:
   postgres_data:
-  chroma_data:
   ollama_models:

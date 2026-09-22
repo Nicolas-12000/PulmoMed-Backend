@@ -5,6 +5,7 @@ Configura la conexión async a PostgreSQL
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import text
 from functools import lru_cache
 
 from app.core.config import get_settings
@@ -57,9 +58,14 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Crea todas las tablas (para desarrollo/testing)"""
+    """Crea extensión pgvector y tablas (desarrollo/testing)."""
     engine = get_engine()
     async with engine.begin() as conn:
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        except Exception:
+            # Postgres sin pgvector: el RAG queda en memoria.
+            pass
         await conn.run_sync(Base.metadata.create_all)
 
 

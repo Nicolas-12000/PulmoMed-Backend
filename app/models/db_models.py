@@ -15,12 +15,14 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import Base
 
@@ -489,3 +491,20 @@ class AIGeneratedQuestion(Base):
 
     def __repr__(self):
         return f"<AIQuestion {self.topic.value} ({self.generation_reason})>"
+
+
+class MedicalChunk(Base):
+    """Chunk médico persistido en pgvector (384 dims = MiniLM multilingüe)."""
+
+    __tablename__ = "medical_chunks"
+
+    id = Column(String(255), primary_key=True)
+    content = Column(Text, nullable=False)
+    source = Column(String(255), nullable=True)
+    page = Column(Integer, nullable=True)
+    extra_metadata = Column(JSON, nullable=True)
+    embedding = Column(Vector(384), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<MedicalChunk {self.id}>"
