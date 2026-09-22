@@ -17,6 +17,7 @@ from app.api.auth_endpoint import router as auth_router
 from app.api.exam_endpoint import router as exam_router
 from app.api.stats_endpoint import router as stats_router
 from app.api.course_endpoint import router as course_router
+from app.api.simulation_endpoint import router as simulation_router
 from app.core.config import get_settings
 
 # Configurar logging
@@ -93,6 +94,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(course_router, prefix="/api/v1")  # Cursos antes de exams
 app.include_router(exam_router, prefix="/api/v1")
 app.include_router(stats_router, prefix="/api/v1")
+app.include_router(simulation_router, prefix="/api/v1")
 
 
 @asynccontextmanager
